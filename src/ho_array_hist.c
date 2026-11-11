@@ -56,7 +56,7 @@ ho_array_hist_new (const int size)
   /* 
    * allocate memory for histogram 
    */
-  hist = (ho_array_hist *) malloc (sizeof (ho_array));
+  hist = (ho_array_hist *) malloc (sizeof (ho_array_hist));
   if (!hist)
   {
     return NULL;

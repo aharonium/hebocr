@@ -58,7 +58,7 @@ ho_array_stat_new (const int width, const int height, double threshold)
   /* 
    * allocate memory for pixbuf 
    */
-  pix = (ho_array_stat *) malloc (sizeof (ho_array));
+  pix = (ho_array_stat *) malloc (sizeof (ho_array_stat));
   if (!pix)
   {
     return NULL;
