@@ -16,6 +16,7 @@ jobs:
   windows:
     name: Windows (MSYS2 UCRT64)
     runs-on: windows-latest
+    timeout-minutes: 30
     defaults:
       run:
         shell: msys2 {0}
@@ -82,12 +83,14 @@ jobs:
 
   linux:
     name: Linux
-    runs-on: ubuntu-latest
+    # pinned: package names below are those of Ubuntu 24.04
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build pkg-config libglib2.0-dev libtiff-dev qt6-base-dev qt6-image-formats-plugins libgl-dev
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 cmake ninja-build pkg-config libglib2.0-dev libtiff-dev qt6-base-dev qt6-image-formats-plugins libgl-dev
 
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
