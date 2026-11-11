@@ -34,6 +34,9 @@ main (int argc, char *argv[])
     "Open the image, run OCR, save a screenshot of the window to FILE and exit "
     "(used for documentation and automated testing).", "FILE");
   parser.addOption (screenshot);
+  QCommandLineOption screenshotGuide ("screenshot-guide",
+    "Also save a screenshot of the Options Guide window to FILE.", "FILE");
+  parser.addOption (screenshotGuide);
   QCommandLineOption screenshotTab ("screenshot-tab",
     "Image tab to show in the screenshot: 0 original, 1 black and white, 2 layout.", "N", "0");
   parser.addOption (screenshotTab);
@@ -65,6 +68,14 @@ main (int argc, char *argv[])
       window.showImageTab (parser.value (screenshotTab).toInt ());
       QApplication::processEvents ();
       const bool ok = window.grab ().save (parser.value (screenshot));
+      if (parser.isSet (screenshotGuide))
+        {
+          window.showGuide ();
+          QApplication::processEvents ();
+          for (QWidget *top : QApplication::topLevelWidgets ())
+            if (top->isVisible () && top != &window)
+              top->grab ().save (parser.value (screenshotGuide));
+        }
       return ok && (args.isEmpty () || !window.textEdit ()->toPlainText ().isEmpty ()) ? 0 : 1;
     }
 

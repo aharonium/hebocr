@@ -108,10 +108,32 @@ if(HEBOCR_BUILD_GUI AND HEBOCR_BUILD_CLI)
     target_compile_definitions(hebocr-gui PRIVATE
       HEBOCR_VERSION="${PROJECT_VERSION}")
     target_link_libraries(hebocr-gui PRIVATE Qt6::Widgets)
+    qt_add_resources(hebocr-gui "docs"
+      PREFIX "/"
+      FILES docs/options.md)
     install(TARGETS hebocr-gui RUNTIME DESTINATION bin)
 
     # smoke test: open a page, run OCR through the GUI, require some text
     # (headless; Windows CI can't create the offscreen display reliably)
+    find_package(Qt6 COMPONENTS Test)
+    if(Qt6Test_FOUND AND NOT WIN32)
+      qt_add_executable(hebocr-gui-tests
+        gui/tests/test_gui.cpp
+        gui/mainwindow.cpp
+        gui/mainwindow.h)
+      target_include_directories(hebocr-gui-tests PRIVATE gui)
+      target_compile_definitions(hebocr-gui-tests PRIVATE
+        HEBOCR_VERSION="${PROJECT_VERSION}"
+        TEST_IMAGE="${CMAKE_CURRENT_SOURCE_DIR}/tests/images/genesis_nikud.png")
+      target_link_libraries(hebocr-gui-tests PRIVATE Qt6::Widgets Qt6::Test)
+      qt_add_resources(hebocr-gui-tests "docs_tests"
+        PREFIX "/"
+        FILES docs/options.md)
+      add_test(NAME gui_tests COMMAND hebocr-gui-tests)
+      set_tests_properties(gui_tests PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;XDG_CONFIG_HOME=${CMAKE_CURRENT_BINARY_DIR}/gui_tests_config")
+    endif()
+
     if(NOT WIN32)
       add_test(NAME gui_smoke
         COMMAND hebocr-gui

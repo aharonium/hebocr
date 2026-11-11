@@ -26,6 +26,7 @@ class QGraphicsScene;
 class QLabel;
 class QLineEdit;
 class QPlainTextEdit;
+class QSlider;
 class QSpinBox;
 class QTabWidget;
 class QTimer;
@@ -43,9 +44,16 @@ public:
   void zoomToFit ();
   void zoomActualSize ();
 
+signals:
+  /* an image file was dropped onto the view */
+  void fileDropped (const QString &path);
+
 protected:
   void wheelEvent (QWheelEvent *event) override;
   void resizeEvent (QResizeEvent *event) override;
+  void dragEnterEvent (QDragEnterEvent *event) override;
+  void dragMoveEvent (QDragMoveEvent *event) override;
+  void dropEvent (QDropEvent *event) override;
 
 private:
   QGraphicsScene *m_scene;
@@ -67,9 +75,11 @@ public:
   /* used by --screenshot for documentation */
   QPlainTextEdit *textEdit () const { return m_text; }
   void showImageTab (int index);
+  void showGuide ();
 
 protected:
   void closeEvent (QCloseEvent *event) override;
+  bool eventFilter (QObject *watched, QEvent *event) override;
   void dragEnterEvent (QDragEnterEvent *event) override;
   void dropEvent (QDropEvent *event) override;
 
@@ -85,6 +95,9 @@ private slots:
   void processError (QProcess::ProcessError error);
   void tick ();
   void about ();
+  void setTextSize (int points);
+  void updateThresholdControls ();
+  void scrollTextToLineStarts ();
 
 private:
   void buildActions ();
@@ -101,6 +114,8 @@ private:
   void appendLog (const QString &text);
 
   /* views */
+  QSlider *m_textSize;
+  QLabel *m_textSizeLabel;
   QTabWidget *m_imageTabs;
   ImageView *m_originalView;
   ImageView *m_bwView;
@@ -118,10 +133,10 @@ private:
   QAction *m_copyAct;
 
   /* recognition */
-  QComboBox *m_font;
+  QComboBox *m_fontModel;
   QCheckBox *m_nikud;
   QCheckBox *m_linguistics;
-  QCheckBox *m_ltr;
+  QCheckBox *m_ltr = nullptr;
   QComboBox *m_format;
 
   /* image processing */
@@ -138,11 +153,11 @@ private:
   QCheckBox *m_dilation;
 
   /* segmentation */
-  QSpinBox *m_columns;
+  QComboBox *m_columns;
   QSpinBox *m_slicing;
   QSpinBox *m_slicingWidth;
   QSpinBox *m_slicingLine;
-  QSpinBox *m_fontSpacing;
+  QComboBox *m_wordSpacing;
 
   /* debug */
   QCheckBox *m_grid;

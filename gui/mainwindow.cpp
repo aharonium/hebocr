@@ -42,8 +42,13 @@
 #include <QMessageBox>
 #include <QMimeData>
 #include <QPlainTextEdit>
+#include <QPointer>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QScrollBar>
+#include <QSlider>
+#include <QTextBrowser>
+#include <QDialog>
 #include <QSettings>
 #include <QSpinBox>
 #include <QSplitter>
@@ -61,6 +66,18 @@
 #define HEBOCR_VERSION "dev"
 #endif
 
+/* first local file in a drag, or an empty string */
+static QString
+droppedFilePath (const QMimeData *mime)
+{
+  if (!mime || !mime->hasUrls ())
+    return QString ();
+  for (const QUrl &url : mime->urls ())
+    if (url.isLocalFile ())
+      return url.toLocalFile ();
+  return QString ();
+}
+
 /* ------------------------------------------------------------------ */
 /* ImageView                                                           */
 /* ------------------------------------------------------------------ */
@@ -77,7 +94,41 @@ ImageView::ImageView (QWidget *parent)
   setRenderHint (QPainter::SmoothPixmapTransform);
   setBackgroundBrush (palette ().window ());
   setAlignment (Qt::AlignCenter);
+  setAcceptDrops (true);
   clearImage ();
+}
+
+/* QGraphicsView normally hands drags to its scene, which rejects files,
+ * so a file dropped on the image never reached the main window. */
+void
+ImageView::dragEnterEvent (QDragEnterEvent *event)
+{
+  if (!droppedFilePath (event->mimeData ()).isEmpty ())
+    event->acceptProposedAction ();
+  else
+    event->ignore ();
+}
+
+void
+ImageView::dragMoveEvent (QDragMoveEvent *event)
+{
+  if (!droppedFilePath (event->mimeData ()).isEmpty ())
+    event->acceptProposedAction ();
+  else
+    event->ignore ();
+}
+
+void
+ImageView::dropEvent (QDropEvent *event)
+{
+  const QString path = droppedFilePath (event->mimeData ());
+  if (path.isEmpty ())
+    {
+      event->ignore ();
+      return;
+    }
+  event->acceptProposedAction ();
+  emit fileDropped (path);
 }
 
 void
@@ -196,6 +247,13 @@ namespace
     QImageReader reader (path);
     reader.setDecideFormatFromContent (true);
     return reader.read ();
+  }
+
+  void
+  setComboData (QComboBox *combo, const QVariant &value)
+  {
+    const int i = combo->findData (value);
+    combo->setCurrentIndex (i >= 0 ? i : 0);
   }
 
   const char *kDefaultFonts[] = {
@@ -318,6 +376,10 @@ MainWindow::buildActions ()
   connect (zoomFit, &QAction::triggered, this, [=] { if (auto *v = currentView ()) v->zoomToFit (); });
   connect (zoom100, &QAction::triggered, this, [=] { if (auto *v = currentView ()) v->zoomActualSize (); });
 
+  QAction *guideAct = helpMenu->addAction (tr ("&Options Guide"));
+  guideAct->setShortcut (QKeySequence::HelpContents);
+  connect (guideAct, &QAction::triggered, this, &MainWindow::showGuide);
+  helpMenu->addSeparator ();
   QAction *aboutAct = helpMenu->addAction (tr ("&About hebOCR"));
   connect (aboutAct, &QAction::triggered, this, &MainWindow::about);
 
@@ -346,15 +408,52 @@ MainWindow::buildCentral ()
   m_imageTabs->addTab (m_bwView, tr ("Black && White"));
   m_imageTabs->addTab (m_layoutView, tr ("Layout"));
 
+  for (ImageView *view : { m_originalView, m_bwView, m_layoutView })
+    connect (view, &ImageView::fileDropped, this, [this] (const QString &path) {
+      if (!isRunning ())
+        openImage (path);
+    });
+
   m_text = new QPlainTextEdit ();
+  m_text->setObjectName ("ocrText");
   m_text->setPlaceholderText (tr ("Recognized text will appear here. You can edit it before saving."));
+  /* keep Hebrew line starts in view when the text reflows (new text,
+   * a different size, a resized window) */
+  connect (m_text->horizontalScrollBar (), &QScrollBar::rangeChanged,
+           this, &MainWindow::scrollTextToLineStarts);
+  /* image files dropped on the text open as images; Ctrl+wheel resizes */
+  m_text->viewport ()->installEventFilter (this);
   m_text->setTabChangesFocus (false);
   /* one OCR line per text line, so the text lines up with the page */
   m_text->setLineWrapMode (QPlainTextEdit::NoWrap);
 
+  /* text size control, right-aligned above the text */
+  m_textSize = new QSlider (Qt::Horizontal);
+  m_textSize->setObjectName ("textSize");
+  m_textSize->setRange (8, 72);
+  m_textSize->setFixedWidth (180);
+  m_textSize->setToolTip (tr ("Size of the recognized text (also Ctrl+mouse wheel over the text)."));
+  m_textSizeLabel = new QLabel ();
+  m_textSizeLabel->setMinimumWidth (m_textSizeLabel->fontMetrics ().horizontalAdvance ("88 pt") + 4);
+  connect (m_textSize, &QSlider::valueChanged, this, &MainWindow::setTextSize);
+
+  auto *textHeader = new QHBoxLayout ();
+  textHeader->setContentsMargins (4, 2, 4, 2);
+  textHeader->addStretch (1);
+  textHeader->addWidget (new QLabel (tr ("Text size:")));
+  textHeader->addWidget (m_textSize);
+  textHeader->addWidget (m_textSizeLabel);
+
+  auto *textPane = new QWidget ();
+  auto *textLayout = new QVBoxLayout (textPane);
+  textLayout->setContentsMargins (0, 0, 0, 0);
+  textLayout->setSpacing (0);
+  textLayout->addLayout (textHeader);
+  textLayout->addWidget (m_text, 1);
+
   auto *split = new QSplitter (Qt::Horizontal);
   split->addWidget (m_imageTabs);
-  split->addWidget (m_text);
+  split->addWidget (textPane);
   split->setStretchFactor (0, 1);
   split->setStretchFactor (1, 1);
   split->setObjectName ("mainSplitter");
@@ -366,26 +465,31 @@ MainWindow::buildSettingsDock ()
 {
   auto *panel = new QWidget ();
   auto *outer = new QVBoxLayout (panel);
+  const QString more = tr ("\n\nSee Help ▸ Options Guide (F1) for details.");
 
   /* recognition */
   auto *recBox = new QGroupBox (tr ("Recognition"));
+  recBox->setToolTip (tr ("How letters are identified and how the text is written out."));
   auto *rec = new QFormLayout (recBox);
-  m_font = new QComboBox ();
-  m_font->addItem (tr ("Default"), 0);
-  for (int i = 1; i <= 6; ++i)
-    m_font->addItem (tr ("Font %1").arg (i), i);
-  m_font->setToolTip (tr ("Which built-in font model to recognize with (-z)."));
+  m_fontModel = new QComboBox ();
+  m_fontModel->addItem (tr ("David"), 0);
+  m_fontModel->setToolTip (tr ("The letter-shape rules used for recognition. David, the common "
+                               "Hebrew book typeface, is the only model the engine has; it also "
+                               "reads many similar typefaces (-z).") + more);
   m_nikud = new QCheckBox (tr ("Recognize nikud"));
-  m_nikud->setToolTip (tr ("Recognize vowel points. Turn off for unvocalized text (-n)."));
+  m_nikud->setToolTip (tr ("Recognize vowel points, dagesh and shin/sin dots. Turn off for "
+                           "unvocalized text (-n).") + more);
   m_linguistics = new QCheckBox (tr ("Linguistics check"));
-  m_linguistics->setToolTip (tr ("Use word-shape rules to correct some letters (-A)."));
+  m_linguistics->setToolTip (tr ("Prefer final letter forms (ך ם ן ף ץ) at the end of words and "
+                                 "regular forms inside words (-A).") + more);
   m_ltr = new QCheckBox (tr ("Left-to-right text"));
-  m_ltr->setToolTip (tr ("Treat the text as left-to-right (-R)."));
+  m_ltr->setToolTip (tr ("Read columns and letters from left to right (-R).") + more);
   m_format = new QComboBox ();
   m_format->addItem (tr ("Plain text"), "text");
-  m_format->addItem (tr ("HTML"), "html");
-  m_format->setToolTip (tr ("Output format (-h for HTML)."));
-  rec->addRow (tr ("Font model:"), m_font);
+  m_format->addItem (tr ("HTML (hOCR, with positions)"), "html");
+  m_format->setToolTip (tr ("Plain UTF-8 text, or HTML marking the position of every column, "
+                            "paragraph and line on the page (-h).") + more);
+  rec->addRow (tr ("Font model:"), m_fontModel);
   rec->addRow (m_nikud);
   rec->addRow (m_linguistics);
   rec->addRow (m_ltr);
@@ -393,38 +497,53 @@ MainWindow::buildSettingsDock ()
 
   /* image processing */
   auto *imgBox = new QGroupBox (tr ("Image processing"));
+  imgBox->setToolTip (tr ("How the scan is turned into the clean black-and-white page the "
+                          "engine reads. Check the Black && White tab."));
   auto *img = new QFormLayout (imgBox);
   m_thresholdType = new QComboBox ();
-  m_thresholdType->addItem (tr ("Normal"), 0);
-  m_thresholdType->addItem (tr ("None"), 1);
-  m_thresholdType->addItem (tr ("Fine"), 2);
-  m_thresholdType->setToolTip (tr ("How the image is converted to black and white (-T)."));
+  m_thresholdType->addItem (tr ("Adaptive"), 0);
+  m_thresholdType->addItem (tr ("Fixed"), 1);
+  m_thresholdType->addItem (tr ("Fine adaptive"), 2);
+  m_thresholdType->setToolTip (tr ("How each pixel is judged ink or paper. Adaptive compares it with "
+                                   "its surroundings (good for uneven lighting); Fixed uses one cutoff "
+                                   "for the whole page; Fine adaptive is a smoother adaptive (-T).") + more);
   m_threshold = autoSpin (0, 100);
-  m_threshold->setToolTip (tr ("Black/white threshold, 1–100 (-t). Auto lets the engine decide."));
+  m_threshold->setSuffix (tr ("%"));
+  m_threshold->setToolTip (tr ("Fixed thresholding: pixels darker than this count as ink (default 60). "
+                               "Raise for faint print, lower if letters run together. With adaptive "
+                               "types, anything darker than this is always ink (-t).") + more);
   m_adaptiveThreshold = autoSpin (0, 100);
-  m_adaptiveThreshold->setToolTip (tr ("Adaptive threshold, 1–100 (-a)."));
+  m_adaptiveThreshold->setSuffix (tr ("%"));
+  m_adaptiveThreshold->setToolTip (tr ("Adaptive thresholding: a pixel is ink if darker than this "
+                                       "percentage of its surroundings (default 75, fine 80). Raise for "
+                                       "faint print, lower if letters look bloated (-a).") + more);
   m_scale = autoSpin (0, 9);
-  m_scale->setToolTip (tr ("Scale the image up by 1–9 before recognition (-s)."));
+  m_scale->setPrefix (tr ("×"));
+  m_scale->setToolTip (tr ("Enlarge the image before recognition. Auto enlarges ×3 if letters are "
+                           "under 15 pixels tall, ×2 if under 30 (-s).") + more);
   m_autoScale = new QCheckBox (tr ("Auto scale"));
-  m_autoScale->setToolTip (tr ("Let the engine choose a scale when none is set (off: -S)."));
+  m_autoScale->setToolTip (tr ("Let the engine choose the scale when Scale is Auto (off: -S).") + more);
   m_rotate = new QDoubleSpinBox ();
   m_rotate->setRange (-180.0, 180.0);
   m_rotate->setDecimals (1);
   m_rotate->setSingleStep (0.5);
   m_rotate->setSuffix (tr ("°"));
-  m_rotate->setSpecialValueText (tr ("None"));
-  m_rotate->setMinimum (-180.0);
-  m_rotate->setToolTip (tr ("Rotate the image clockwise by this many degrees (-q)."));
+  m_rotate->setToolTip (tr ("Rotate the image clockwise by this many degrees; negative for "
+                            "counter-clockwise (-q).") + more);
   m_autoRotate = new QCheckBox (tr ("Auto rotate (deskew)"));
-  m_autoRotate->setToolTip (tr ("Straighten slightly rotated pages (off: -Q)."));
+  m_autoRotate->setToolTip (tr ("Straighten slightly tilted pages (off: -Q).") + more);
   m_opening = new QCheckBox (tr ("Separate touching letters"));
-  m_opening->setToolTip (tr ("Morphological opening (-1)."));
+  m_opening->setToolTip (tr ("Break thin connections between letters; also removes small specks "
+                             "(morphological opening, -1).") + more);
   m_closing = new QCheckBox (tr ("Join broken letter parts"));
-  m_closing->setToolTip (tr ("Morphological closing (-2)."));
+  m_closing->setToolTip (tr ("Close small breaks in worn or broken letters "
+                             "(morphological closing, -2).") + more);
   m_erosion = new QCheckBox (tr ("Remove specks"));
-  m_erosion->setToolTip (tr ("Erosion (-3)."));
-  m_dilation = new QCheckBox (tr ("Thicken faint letters"));
-  m_dilation->setToolTip (tr ("Dilation (-4)."));
+  m_erosion->setToolTip (tr ("Remove dust and specks by thinning everything; also thins heavy, "
+                             "over-inked letters (erosion, -3).") + more);
+  m_dilation = new QCheckBox (tr ("Restore faint letters"));
+  m_dilation->setToolTip (tr ("Fill in missing parts of faint letters by thickening every stroke "
+                              "(dilation, -4).") + more);
   img->addRow (tr ("Thresholding:"), m_thresholdType);
   img->addRow (tr ("Threshold:"), m_threshold);
   img->addRow (tr ("Adaptive threshold:"), m_adaptiveThreshold);
@@ -437,35 +556,57 @@ MainWindow::buildSettingsDock ()
   img->addRow (m_erosion);
   img->addRow (m_dilation);
 
-  /* segmentation */
+  /* page layout */
   auto *segBox = new QGroupBox (tr ("Page layout"));
+  segBox->setToolTip (tr ("How the page is divided into columns, lines, words and letters. "
+                          "Check the Layout tab."));
   auto *seg = new QFormLayout (segBox);
-  m_columns = autoSpin (0, 255);
-  m_columns->setToolTip (tr ("Number of text columns; Auto detects them, 255 = free layout (-c)."));
+  m_columns = new QComboBox ();
+  m_columns->addItem (tr ("Auto-detect"), 0);
+  m_columns->addItem (tr ("1 column"), 1);
+  for (int i = 2; i <= 6; ++i)
+    m_columns->addItem (tr ("%1 columns").arg (i), i);
+  m_columns->addItem (tr ("Free layout"), 255);
+  m_columns->setToolTip (tr ("Number of text columns. Free layout finds blocks of text anywhere, "
+                             "for irregular pages (-c).") + more);
+  m_wordSpacing = new QComboBox ();
+  m_wordSpacing->addItem (tr ("Very tight"), -3);
+  m_wordSpacing->addItem (tr ("Tight"), -2);
+  m_wordSpacing->addItem (tr ("Slightly tight"), -1);
+  m_wordSpacing->addItem (tr ("Normal"), 0);
+  m_wordSpacing->addItem (tr ("Slightly spaced"), 1);
+  m_wordSpacing->addItem (tr ("Spaced"), 2);
+  m_wordSpacing->addItem (tr ("Very spaced"), 3);
+  m_wordSpacing->setToolTip (tr ("How wide a gap must be to separate words. Choose Spaced for widely "
+                                 "spaced type or words letter-spaced for emphasis (ח ב ת); Tight "
+                                 "when words run together (-w).") + more);
   m_slicing = autoSpin (0, 250);
-  m_slicing->setToolTip (tr ("Threshold for cutting touching letters apart, 1–250 (-x)."));
+  m_slicing->setSuffix (tr ("%"));
+  m_slicing->setToolTip (tr ("Where to cut blobs that are too wide to be one letter: higher cuts "
+                             "more readily (default 85) (-x).") + more);
   m_slicingWidth = autoSpin (49, 250);
-  m_slicingWidth->setToolTip (tr ("Letter-slicing width, 50–250 (-X)."));
+  m_slicingWidth->setSuffix (tr ("%"));
+  m_slicingWidth->setToolTip (tr ("How wide a blob must be, compared with an average letter, before "
+                                  "it is cut: lower is more aggressive (default 150) (-X).") + more);
   m_slicingLine = autoSpin (0, 90);
-  m_slicingLine->setToolTip (tr ("Line leeway for letter slicing, 1–90 (-E)."));
-  m_fontSpacing = new QSpinBox ();
-  m_fontSpacing->setRange (-10, 10);
-  m_fontSpacing->setValue (0);
-  m_fontSpacing->setSpecialValueText (QString ());
-  m_fontSpacing->setToolTip (tr ("Letter spacing: negative = tight, positive = spaced, 0 = normal (-w)."));
+  m_slicingLine->setSuffix (tr ("%"));
+  m_slicingLine->setToolTip (tr ("Also count ink this far above and below the line when deciding "
+                                 "where to cut, so nikud and tall letters are respected (-E).") + more);
   seg->addRow (tr ("Columns:"), m_columns);
+  seg->addRow (tr ("Word spacing:"), m_wordSpacing);
   seg->addRow (tr ("Slicing threshold:"), m_slicing);
   seg->addRow (tr ("Slicing width:"), m_slicingWidth);
   seg->addRow (tr ("Slicing line leeway:"), m_slicingLine);
-  seg->addRow (tr ("Letter spacing:"), m_fontSpacing);
 
-  /* debug */
+  /* diagnostics */
   auto *dbgBox = new QGroupBox (tr ("Diagnostics"));
+  dbgBox->setToolTip (tr ("Help you see what the engine did; they don't improve recognition."));
   auto *dbg = new QFormLayout (dbgBox);
   m_grid = new QCheckBox (tr ("Draw grid on images"));
-  m_grid->setToolTip (tr ("Draw a grid on the black-and-white and layout images (-g)."));
-  m_fontNumbers = new QCheckBox (tr ("Show font numbers in text"));
-  m_fontNumbers->setToolTip (tr ("Print the engine's internal letter numbers (-j)."));
+  m_grid->setToolTip (tr ("Draw a grid on the Black && White and Layout images (-g).") + more);
+  m_fontNumbers = new QCheckBox (tr ("Number lines by letter index"));
+  m_fontNumbers->setToolTip (tr ("Start each line with the index of its first letter, "
+                                 "e.g. (0030) (-j).") + more);
   dbg->addRow (m_grid);
   dbg->addRow (m_fontNumbers);
 
@@ -493,16 +634,32 @@ MainWindow::buildSettingsDock ()
 
   /* keep the command line preview current */
   auto update = [this] { updateCommandLine (); };
-  for (QComboBox *c : { m_font, m_format, m_thresholdType })
+  for (QComboBox *c : { m_fontModel, m_format, m_thresholdType, m_columns, m_wordSpacing })
     connect (c, &QComboBox::currentIndexChanged, this, update);
   for (QCheckBox *c : { m_nikud, m_linguistics, m_ltr, m_autoScale, m_autoRotate,
                         m_opening, m_closing, m_erosion, m_dilation, m_grid, m_fontNumbers })
     connect (c, &QCheckBox::toggled, this, update);
-  for (QSpinBox *s : { m_threshold, m_adaptiveThreshold, m_scale, m_columns,
-                       m_slicing, m_slicingWidth, m_slicingLine, m_fontSpacing })
-    connect (s, &QSpinBox::valueChanged, this, update);
+  for (QSpinBox *sp : { m_threshold, m_adaptiveThreshold, m_scale,
+                        m_slicing, m_slicingWidth, m_slicingLine })
+    connect (sp, &QSpinBox::valueChanged, this, update);
   connect (m_rotate, &QDoubleSpinBox::valueChanged, this, update);
   connect (m_ltr, &QCheckBox::toggled, this, &MainWindow::applyTextDirection);
+  connect (m_thresholdType, &QComboBox::currentIndexChanged,
+           this, &MainWindow::updateThresholdControls);
+
+  /* names for automated tests */
+  m_fontModel->setObjectName ("fontModel");
+  m_thresholdType->setObjectName ("thresholdType");
+  m_adaptiveThreshold->setObjectName ("adaptiveThreshold");
+  m_columns->setObjectName ("columns");
+  m_wordSpacing->setObjectName ("wordSpacing");
+}
+
+void
+MainWindow::updateThresholdControls ()
+{
+  /* the adaptive percentage means nothing with a fixed threshold */
+  m_adaptiveThreshold->setEnabled (m_thresholdType->currentData ().toInt () != 1);
 }
 
 void
@@ -514,6 +671,7 @@ MainWindow::buildLogDock ()
   auto *cmdRow = new QHBoxLayout ();
   cmdRow->addWidget (new QLabel (tr ("Command line:")));
   m_commandLine = new QLineEdit ();
+  m_commandLine->setObjectName ("commandLine");
   m_commandLine->setReadOnly (true);
   m_commandLine->setToolTip (tr ("The equivalent hebocr command for the current settings."));
   cmdRow->addWidget (m_commandLine, 1);
@@ -556,7 +714,7 @@ void
 MainWindow::resetSettings ()
 {
   m_loadingSettings = true;
-  m_font->setCurrentIndex (0);
+  m_fontModel->setCurrentIndex (0);
   m_nikud->setChecked (true);
   m_linguistics->setChecked (false);
   m_ltr->setChecked (false);
@@ -572,15 +730,16 @@ MainWindow::resetSettings ()
   m_closing->setChecked (false);
   m_erosion->setChecked (false);
   m_dilation->setChecked (false);
-  m_columns->setValue (m_columns->minimum ());
+  setComboData (m_columns, 0);
+  setComboData (m_wordSpacing, 0);
   m_slicing->setValue (m_slicing->minimum ());
   m_slicingWidth->setValue (m_slicingWidth->minimum ());
   m_slicingLine->setValue (m_slicingLine->minimum ());
-  m_fontSpacing->setValue (0);
   m_grid->setChecked (false);
   m_fontNumbers->setChecked (false);
   m_loadingSettings = false;
   applyTextDirection ();
+  updateThresholdControls ();
   updateCommandLine ();
 }
 
@@ -595,8 +754,7 @@ MainWindow::loadSettings ()
   if (auto *split = findChild<QSplitter *> ("mainSplitter"))
     split->restoreState (s.value ("window/splitter").toByteArray ());
 
-  s.beginGroup ("ocr");
-  m_font->setCurrentIndex (s.value ("font", 0).toInt ());
+  s.beginGroup ("ocr2");
   m_nikud->setChecked (s.value ("nikud", true).toBool ());
   m_linguistics->setChecked (s.value ("linguistics", false).toBool ());
   m_ltr->setChecked (s.value ("ltr", false).toBool ());
@@ -612,11 +770,11 @@ MainWindow::loadSettings ()
   m_closing->setChecked (s.value ("closing", false).toBool ());
   m_erosion->setChecked (s.value ("erosion", false).toBool ());
   m_dilation->setChecked (s.value ("dilation", false).toBool ());
-  m_columns->setValue (s.value ("columns", m_columns->minimum ()).toInt ());
+  setComboData (m_columns, s.value ("columns", 0).toInt ());
+  setComboData (m_wordSpacing, s.value ("wordSpacing", 0).toInt ());
   m_slicing->setValue (s.value ("slicing", m_slicing->minimum ()).toInt ());
   m_slicingWidth->setValue (s.value ("slicingWidth", m_slicingWidth->minimum ()).toInt ());
   m_slicingLine->setValue (s.value ("slicingLine", m_slicingLine->minimum ()).toInt ());
-  m_fontSpacing->setValue (s.value ("fontSpacing", 0).toInt ());
   m_grid->setChecked (s.value ("grid", false).toBool ());
   m_fontNumbers->setChecked (s.value ("fontNumbers", false).toBool ());
   s.endGroup ();
@@ -633,11 +791,13 @@ MainWindow::loadSettings ()
             font = QFont (QString::fromLatin1 (name));
             break;
           }
-      font.setPointSize (16);
+      font.setPointSize (18);
     }
   m_text->setFont (font);
   m_loadingSettings = false;
+  setTextSize (font.pointSize () > 0 ? font.pointSize () : 18);
   applyTextDirection ();
+  updateThresholdControls ();
 }
 
 void
@@ -650,8 +810,7 @@ MainWindow::saveSettings ()
     s.setValue ("window/splitter", split->saveState ());
   s.setValue ("text/font", m_text->font ().toString ());
 
-  s.beginGroup ("ocr");
-  s.setValue ("font", m_font->currentIndex ());
+  s.beginGroup ("ocr2");
   s.setValue ("nikud", m_nikud->isChecked ());
   s.setValue ("linguistics", m_linguistics->isChecked ());
   s.setValue ("ltr", m_ltr->isChecked ());
@@ -667,11 +826,11 @@ MainWindow::saveSettings ()
   s.setValue ("closing", m_closing->isChecked ());
   s.setValue ("erosion", m_erosion->isChecked ());
   s.setValue ("dilation", m_dilation->isChecked ());
-  s.setValue ("columns", m_columns->value ());
+  s.setValue ("columns", m_columns->currentData ().toInt ());
+  s.setValue ("wordSpacing", m_wordSpacing->currentData ().toInt ());
   s.setValue ("slicing", m_slicing->value ());
   s.setValue ("slicingWidth", m_slicingWidth->value ());
   s.setValue ("slicingLine", m_slicingLine->value ());
-  s.setValue ("fontSpacing", m_fontSpacing->value ());
   s.setValue ("grid", m_grid->isChecked ());
   s.setValue ("fontNumbers", m_fontNumbers->isChecked ());
   s.endGroup ();
@@ -684,8 +843,22 @@ MainWindow::applyTextDirection ()
   m_text->setLayoutDirection (ltr ? Qt::LeftToRight : Qt::RightToLeft);
   QTextOption opt = m_text->document ()->defaultTextOption ();
   opt.setTextDirection (ltr ? Qt::LeftToRight : Qt::RightToLeft);
-  opt.setAlignment (ltr ? Qt::AlignLeft : Qt::AlignRight);
+  /* Qt mirrors AlignLeft/AlignRight in right-to-left mode unless they
+   * are marked absolute */
+  opt.setAlignment (Qt::AlignAbsolute | (ltr ? Qt::AlignLeft : Qt::AlignRight));
   m_text->document ()->setDefaultTextOption (opt);
+  scrollTextToLineStarts ();
+}
+
+void
+MainWindow::scrollTextToLineStarts ()
+{
+  /* without wrapping, long lines scroll sideways; show the edge where
+   * lines begin (the right edge for Hebrew) */
+  if (!m_ltr)
+    return; /* still building the window */
+  QScrollBar *bar = m_text->horizontalScrollBar ();
+  bar->setValue (m_ltr->isChecked () ? bar->minimum () : bar->maximum ());
 }
 
 /* ------------------------------------------------------------------ */
@@ -718,8 +891,8 @@ MainWindow::engineArguments (bool forDisplay) const
 
   if (m_format->currentData ().toString () == "html")
     a << "-h";
-  if (m_font->currentData ().toInt () > 0)
-    a << "-z" << QString::number (m_font->currentData ().toInt ());
+  if (m_fontModel->currentData ().toInt () > 0)
+    a << "-z" << QString::number (m_fontModel->currentData ().toInt ());
   if (!m_nikud->isChecked ())
     a << "-n";
   if (m_linguistics->isChecked ())
@@ -750,16 +923,16 @@ MainWindow::engineArguments (bool forDisplay) const
   if (m_dilation->isChecked ())
     a << "-4";
 
-  if (m_columns->value () > m_columns->minimum ())
-    a << "-c" << QString::number (m_columns->value ());
+  if (m_columns->currentData ().toInt () > 0)
+    a << "-c" << QString::number (m_columns->currentData ().toInt ());
   if (m_slicing->value () > m_slicing->minimum ())
     a << "-x" << QString::number (m_slicing->value ());
   if (m_slicingWidth->value () > m_slicingWidth->minimum ())
     a << "-X" << QString::number (m_slicingWidth->value ());
   if (m_slicingLine->value () > m_slicingLine->minimum ())
     a << "-E" << QString::number (m_slicingLine->value ());
-  if (m_fontSpacing->value () != 0)
-    a << "-w" << QString::number (m_fontSpacing->value ());
+  if (m_wordSpacing->currentData ().toInt () != 0)
+    a << "-w" << QString::number (m_wordSpacing->currentData ().toInt ());
 
   if (m_grid->isChecked ())
     a << "-g";
@@ -917,6 +1090,7 @@ MainWindow::processFinished (int exitCode, QProcess::ExitStatus status)
   const QString text = QString::fromUtf8 (out.readAll ());
   m_text->setPlainText (text);
   m_text->document ()->setModified (false);
+  QTimer::singleShot (0, this, &MainWindow::scrollTextToLineStarts);
   const int lines = text.count (QLatin1Char ('\n'));
   m_status->setText (tr ("Done in %1 s — %2 lines recognized from %3.")
                        .arg (secs, 0, 'f', 1)
@@ -1061,7 +1235,54 @@ MainWindow::chooseTextFont ()
   bool ok = false;
   QFont font = QFontDialog::getFont (&ok, m_text->font (), this, tr ("Text Font"));
   if (ok)
-    m_text->setFont (font);
+    {
+      m_text->setFont (font);
+      setTextSize (font.pointSize ());
+    }
+}
+
+void
+MainWindow::setTextSize (int points)
+{
+  points = qBound (m_textSize->minimum (), points, m_textSize->maximum ());
+  QFont font = m_text->font ();
+  if (font.pointSize () != points)
+    {
+      font.setPointSize (points);
+      m_text->setFont (font);
+    }
+  if (m_textSize->value () != points)
+    {
+      const QSignalBlocker block (m_textSize);
+      m_textSize->setValue (points);
+    }
+  m_textSizeLabel->setText (tr ("%1 pt").arg (points));
+}
+
+void
+MainWindow::showGuide ()
+{
+  static QPointer<QDialog> dialog;
+  if (!dialog)
+    {
+      dialog = new QDialog (this);
+      dialog->setWindowTitle (tr ("hebOCR Options Guide"));
+      dialog->setAttribute (Qt::WA_DeleteOnClose);
+      auto *browser = new QTextBrowser ();
+      browser->setOpenExternalLinks (true);
+      QFile f (QStringLiteral (":/docs/options.md"));
+      if (f.open (QIODevice::ReadOnly))
+        browser->setMarkdown (QString::fromUtf8 (f.readAll ()));
+      else
+        browser->setPlainText (tr ("The options guide is missing from this build."));
+      auto *layout = new QVBoxLayout (dialog);
+      layout->setContentsMargins (0, 0, 0, 0);
+      layout->addWidget (browser);
+      dialog->resize (820, 760);
+    }
+  dialog->show ();
+  dialog->raise ();
+  dialog->activateWindow ();
 }
 
 bool
@@ -1109,17 +1330,65 @@ MainWindow::closeEvent (QCloseEvent *event)
   event->accept ();
 }
 
+bool
+MainWindow::eventFilter (QObject *watched, QEvent *event)
+{
+  if (watched == m_text->viewport ())
+    {
+      switch (event->type ())
+        {
+        case QEvent::DragEnter:
+        case QEvent::DragMove:
+          {
+            auto *e = static_cast<QDragMoveEvent *> (event);
+            if (!droppedFilePath (e->mimeData ()).isEmpty ())
+              {
+                e->acceptProposedAction ();
+                return true;
+              }
+            break;
+          }
+        case QEvent::Drop:
+          {
+            auto *e = static_cast<QDropEvent *> (event);
+            const QString path = droppedFilePath (e->mimeData ());
+            if (!path.isEmpty ())
+              {
+                e->acceptProposedAction ();
+                if (!isRunning ())
+                  openImage (path);
+                return true;
+              }
+            break;
+          }
+        case QEvent::Wheel:
+          {
+            auto *e = static_cast<QWheelEvent *> (event);
+            if (e->modifiers () & Qt::ControlModifier)
+              {
+                setTextSize (m_textSize->value () + (e->angleDelta ().y () > 0 ? 1 : -1));
+                return true;
+              }
+            break;
+          }
+        default:
+          break;
+        }
+    }
+  return QMainWindow::eventFilter (watched, event);
+}
+
 void
 MainWindow::dragEnterEvent (QDragEnterEvent *event)
 {
-  if (event->mimeData ()->hasUrls () && !isRunning ())
+  if (!droppedFilePath (event->mimeData ()).isEmpty () && !isRunning ())
     event->acceptProposedAction ();
 }
 
 void
 MainWindow::dropEvent (QDropEvent *event)
 {
-  const QList<QUrl> urls = event->mimeData ()->urls ();
-  if (!urls.isEmpty () && urls.first ().isLocalFile ())
-    openImage (urls.first ().toLocalFile ());
+  const QString path = droppedFilePath (event->mimeData ());
+  if (!path.isEmpty ())
+    openImage (path);
 }

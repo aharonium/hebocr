@@ -63,6 +63,7 @@ jobs:
             ldd "$f" | awk '{print $3}' | grep -i '^/ucrt64/' || true
           done | sort -u | xargs -r -I{} cp -n {} dist/
           cp COPYING README README.windows.txt dist/
+          cp docs/options.md dist/options-guide.md
           ls -l dist
 
       - uses: actions/upload-artifact@v4
