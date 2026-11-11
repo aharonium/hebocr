@@ -2,8 +2,15 @@ name: Build
 
 on:
   push:
+    branches: ['**']
   pull_request:
   workflow_dispatch:
+  # Publishing a release on GitHub builds it and attaches the downloads.
+  release:
+    types: [published]
+
+permissions:
+  contents: write
 
 jobs:
   windows:
@@ -52,6 +59,17 @@ jobs:
           name: hebocr-windows-x64
           path: dist/
 
+      - name: Attach zip to release
+        if: github.event_name == 'release'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ github.event.release.tag_name }}"
+          $zip = "hebocr-$tag-windows-x64.zip"
+          Compress-Archive -Path dist/* -DestinationPath $zip
+          gh release upload $tag $zip --clobber
+
   linux:
     name: Linux
     runs-on: ubuntu-latest
@@ -74,3 +92,14 @@ jobs:
         with:
           name: hebocr-linux-x64
           path: build/hebocr
+
+      - name: Attach tarball to release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ github.event.release.tag_name }}"
+          mkdir -p "hebocr-$tag-linux-x64"
+          cp build/hebocr COPYING README "hebocr-$tag-linux-x64/"
+          tar czf "hebocr-$tag-linux-x64.tar.gz" "hebocr-$tag-linux-x64"
+          gh release upload "$tag" "hebocr-$tag-linux-x64.tar.gz" --clobber
