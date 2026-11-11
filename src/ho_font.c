@@ -919,6 +919,8 @@ ho_font_edges_top (const ho_bitmap * m_text, const ho_bitmap * m_mask)
   dy = threshold * line_height / 100;
   y1 = y_start - line_height / 6 - 3;
   y2 = y_start + line_height / 2 + 3;
+  if (y2 > m_text->height)
+    y2 = m_text->height;
   if (y1 < 0)
     y1 = 0;
   dx = m_text->width / 20 + 1;
@@ -1029,6 +1031,8 @@ ho_font_edges_top_big (const ho_bitmap * m_text, const ho_bitmap * m_mask)
   dy = threshold * line_height / 100;
   y1 = y_start - line_height / 6 - 3;
   y2 = y_start + line_height / 2 + 3;
+  if (y2 > m_text->height)
+    y2 = m_text->height;
   if (y1 < 0)
     y1 = 0;
   dx = m_text->width / 20 + 1;
@@ -1846,6 +1850,8 @@ ho_font_notch_top (const ho_bitmap * m_text, const ho_bitmap * m_mask)
   dy = threshold * line_height / 100 + 1;
   y1 = y_start - line_height / 6 - 3;
   y2 = y_start + line_height / 2 + 3;
+  if (y2 > m_text->height)
+    y2 = m_text->height;
   if (y1 < 0)
     y1 = 0;
   dx = m_text->width / 30 + 3;
