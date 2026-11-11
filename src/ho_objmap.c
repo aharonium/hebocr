@@ -1053,7 +1053,7 @@ ho_objmap_update_reading_index_multi_columns (ho_objmap * m,
   int y;
   int x_start, x_end;
   int column_start_list_size;
-  int *column_start_list;
+  int *column_start_list = NULL;
   ho_bitmap *m_bitmap = NULL;
 
   /* FIXME: if n_columns > 6 ? */
@@ -1072,6 +1072,10 @@ ho_objmap_update_reading_index_multi_columns (ho_objmap * m,
 
   /* free bitmap */
   ho_bitmap_free (m_bitmap);
+
+  /* column detection failed: fall back to single-column reading order */
+  if (!column_start_list)
+    return ho_objmap_update_reading_index_column (m, 1, dir_ltr);
 
   /* look at all the columns */
   x_start = m->width;
