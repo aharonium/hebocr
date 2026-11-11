@@ -233,10 +233,10 @@ ho_recognize_dimentions (const ho_bitmap * m_text,
   x = 0;
   while (x < m_text->width)
   {
-    for (; x < m_text->width, !ho_bitmap_get (m_clean, x, y); x++) ;
-    if (ho_bitmap_get (m_clean, x, y) && x < m_text->width)
+    for (; x < m_text->width && !ho_bitmap_get (m_clean, x, y); x++) ;
+    if (x < m_text->width && ho_bitmap_get (m_clean, x, y))
       sum++;
-    for (; x < m_text->width, ho_bitmap_get (m_clean, x, y); x++) ;
+    for (; x < m_text->width && ho_bitmap_get (m_clean, x, y); x++) ;
   }
 
   if (sum == 2)
@@ -251,10 +251,10 @@ ho_recognize_dimentions (const ho_bitmap * m_text,
   x = 0;
   while (x < m_text->width)
   {
-    for (; x < m_text->width, !ho_bitmap_get (m_clean, x, y); x++) ;
-    if (ho_bitmap_get (m_text, x, y) && x < m_text->width)
+    for (; x < m_text->width && !ho_bitmap_get (m_clean, x, y); x++) ;
+    if (x < m_text->width && ho_bitmap_get (m_text, x, y))
       sum++;
-    for (; x < m_text->width, ho_bitmap_get (m_clean, x, y); x++) ;
+    for (; x < m_text->width && ho_bitmap_get (m_clean, x, y); x++) ;
   }
 
   if (sum == 2)

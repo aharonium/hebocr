@@ -449,7 +449,10 @@ ho_objlist_statistics (ho_objlist * object_list,
     }
   }
 
-  /* set average values */
+  /* set average values (default to 0 when no object passed the filter) */
+  *weight_avg = 0.0;
+  *height_avg = 0;
+  *width_avg = 0;
   if (*counter)
   {
     *weight_avg = weight_sum / (*counter);
