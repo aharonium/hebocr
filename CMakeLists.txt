@@ -1,10 +1,11 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(hebocr VERSION 0.11.1 LANGUAGES C)
+project(hebocr VERSION 0.12.0 LANGUAGES C CXX)
 
 option(HEBOCR_WITH_TIFF "Read black-and-white TIFF files with libtiff" ON)
 option(HEBOCR_WITH_FFTW "Use FFTW for image filtering" OFF)
 option(HEBOCR_BUILD_CLI "Build the hebocr command-line tool (needs GLib)" ON)
+option(HEBOCR_BUILD_GUI "Build the hebocr-gui graphical front end (needs Qt 6)" ON)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
@@ -89,6 +90,40 @@ if(HEBOCR_BUILD_CLI)
   target_link_libraries(hebocr PRIVATE libhebocr PkgConfig::GLIB2)
 
   install(TARGETS hebocr RUNTIME DESTINATION bin)
+endif()
+
+# ---------------------------------------------------------------------------
+# hebocr-gui: graphical front end (runs the hebocr CLI as a subprocess)
+# ---------------------------------------------------------------------------
+if(HEBOCR_BUILD_GUI AND HEBOCR_BUILD_CLI)
+  find_package(Qt6 6.4 COMPONENTS Widgets)
+  if(Qt6_FOUND)
+    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+    qt_standard_project_setup()
+    qt_add_executable(hebocr-gui WIN32
+      gui/main.cpp
+      gui/mainwindow.cpp
+      gui/mainwindow.h)
+    target_compile_definitions(hebocr-gui PRIVATE
+      HEBOCR_VERSION="${PROJECT_VERSION}")
+    target_link_libraries(hebocr-gui PRIVATE Qt6::Widgets)
+    install(TARGETS hebocr-gui RUNTIME DESTINATION bin)
+
+    # smoke test: open a page, run OCR through the GUI, require some text
+    # (headless; Windows CI can't create the offscreen display reliably)
+    if(NOT WIN32)
+      add_test(NAME gui_smoke
+        COMMAND hebocr-gui
+          --screenshot ${CMAKE_CURRENT_BINARY_DIR}/gui_smoke.png
+          ${CMAKE_CURRENT_SOURCE_DIR}/tests/images/genesis_nikud.png)
+      set_tests_properties(gui_smoke PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;XDG_CONFIG_HOME=${CMAKE_CURRENT_BINARY_DIR}/gui_smoke_config"
+        TIMEOUT 120)
+    endif()
+  else()
+    message(STATUS "Qt 6 not found; not building hebocr-gui")
+  endif()
 endif()
 
 install(TARGETS libhebocr ARCHIVE DESTINATION lib)
