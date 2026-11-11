@@ -24,6 +24,7 @@
 
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 
 #include "hocr.h"
 
@@ -369,6 +370,20 @@ hocr_font_recognition (const ho_layout * l_page, ho_string * s_text_out,
             /* free bitmaps */
             ho_bitmap_free (m_font_nikud);
             m_font_nikud = NULL;
+
+            /*
+             * A single dot above the letter is classified as a shin or
+             * sin dot by its position, but that only makes sense on the
+             * letter shin. On any other letter it is a holam (e.g. the
+             * holam on tav in tohu is top-left and was output as a sin
+             * dot, U+05C2).
+             */
+            if (font_shin && font_shin[0] && strcmp (font, "ש") != 0)
+            {
+              if (!font_nikud || !font_nikud[0])
+                font_nikud = "ֹ";       /* holam, U+05B9 */
+              font_shin = "";
+            }
 
             /* insert font nikud to text out */
             ho_string_cat (s_text_out, font_shin);
