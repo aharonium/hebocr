@@ -504,6 +504,15 @@ ho_pixbuf_draw_bitmap_at (ho_pixbuf * m, const ho_bitmap * bit_in,
  */
 ho_pixbuf *ho_pixbuf_pnm_load (const char *filename);
 
+#ifdef USE_STB_IMAGE
+/**
+ load a PNG, JPEG, BMP, GIF, TGA, PSD or PNM file as a grayscale ho_pixbuf
+ @param filename file to load
+ @return newly allocated gray ho_pixbuf, or NULL on failure
+ */
+ho_pixbuf *ho_pixbuf_image_load (const char *filename);
+#endif /* USE_STB_IMAGE */
+
 /**
  writes ho_pixbuf to pnm file
  @param pix ho_pixbuf 8 or 24 bpp

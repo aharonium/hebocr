@@ -1614,8 +1614,13 @@ ho_pixbuf_pnm_load (const char *filename)
     /* create a new pixbuf */
     pix = ho_pixbuf_new (n_channels, width, height, 0);
 
-    if (pix)
-      fread (pix->data, 1, pix->height * pix->rowstride, file);
+    /* reject truncated files instead of returning a partly-filled image */
+    if (pix && fread (pix->data, 1, pix->height * pix->rowstride, file) !=
+      (size_t) (pix->height * pix->rowstride))
+    {
+      ho_pixbuf_free (pix);
+      pix = NULL;
+    }
   }
 
   if (!use_stdin)
@@ -1662,10 +1667,10 @@ ho_pixbuf_bw_tiff_load (const char *filename)
   ho_pixbuf *pix = NULL;
 
   TIFF *image;
-  uint16 photo, bps, spp, fillorder;
-  uint32 width;
-  uint32 height;
-  uint32 rowstride;
+  uint16_t photo, bps, spp, fillorder;
+  uint32_t width;
+  uint32_t height;
+  uint32_t rowstride;
   tsize_t stripSize;
   unsigned long imageOffset, result;
   int stripMax, stripCount;
@@ -1833,3 +1838,33 @@ ho_pixbuf_bw_tiff_save (const ho_pixbuf * pix, const char *filename)
   return FALSE;
 }
 #endif /* USE_TIFF */
+
+#ifdef USE_STB_IMAGE
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_NO_HDR
+#define STBI_NO_LINEAR
+#define STBI_FAILURE_USERMSG
+#include "third_party/stb_image.h"
+
+ho_pixbuf *
+ho_pixbuf_image_load (const char *filename)
+{
+  ho_pixbuf *pix = NULL;
+  unsigned char *data;
+  int width, height, channels, y;
+
+  /* load as 8-bit grayscale; stb_image handles PNG, JPEG, BMP, GIF,
+   * PSD, TGA and PNM */
+  data = stbi_load (filename, &width, &height, &channels, 1);
+  if (!data)
+    return NULL;
+
+  pix = ho_pixbuf_new (1, width, height, 0);
+  if (pix)
+    for (y = 0; y < height; y++)
+      memcpy (pix->data + y * pix->rowstride, data + y * width, width);
+
+  stbi_image_free (data);
+  return pix;
+}
+#endif /* USE_STB_IMAGE */

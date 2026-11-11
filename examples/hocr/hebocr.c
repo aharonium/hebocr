@@ -495,8 +495,13 @@ hocr_pixbuf_load_with_debug ()
   if (no_gtk)
   {
     pix = ho_pixbuf_pnm_load (image_in_filename);
+#ifdef USE_STB_IMAGE
+    /* if this is not a pnm image file, try PNG, JPEG, BMP, GIF, ... */
+    if (!pix)
+      pix = ho_pixbuf_image_load (image_in_filename);
+#endif /* USE_STB_IMAGE */
 #ifdef USE_TIFF
-    /* if this is not a pnm image file, try b/w tiff */
+    /* otherwise try b/w tiff */
     if (!pix)
       pix = ho_pixbuf_bw_tiff_load (image_in_filename);
 #endif /* USE_TIFF */
