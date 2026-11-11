@@ -20,6 +20,7 @@
 class QAction;
 class QCheckBox;
 class QComboBox;
+class QFontComboBox;
 class QDoubleSpinBox;
 class QGraphicsPixmapItem;
 class QGraphicsScene;
@@ -96,6 +97,7 @@ private slots:
   void tick ();
   void about ();
   void setTextSize (int points);
+  void setTextFamily (const QFont &font);
   void updateThresholdControls ();
   void scrollTextToLineStarts ();
 
@@ -111,17 +113,18 @@ private:
   bool maybeDiscardEdits ();
   QStringList engineArguments (bool forDisplay) const;
   QString enginePath () const;
-  void appendLog (const QString &text);
+  void reportEngineError (const QString &summary);
 
   /* views */
   QSlider *m_textSize;
   QLabel *m_textSizeLabel;
+  QFontComboBox *m_textFont;
   QTabWidget *m_imageTabs;
   ImageView *m_originalView;
   ImageView *m_bwView;
   ImageView *m_layoutView;
   QPlainTextEdit *m_text;
-  QPlainTextEdit *m_log;
+  QString m_engineOutput;
   QLineEdit *m_commandLine;
   QLabel *m_status;
 
@@ -134,7 +137,7 @@ private:
 
   /* recognition */
   QComboBox *m_fontModel;
-  QCheckBox *m_nikud;
+  QCheckBox *m_niqud;
   QCheckBox *m_linguistics;
   QCheckBox *m_ltr = nullptr;
   QComboBox *m_format;

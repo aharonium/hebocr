@@ -14,6 +14,7 @@
  */
 
 #include "mainwindow.h"
+#include "guidewindow.h"
 
 #include <QAction>
 #include <QApplication>
@@ -30,6 +31,7 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFontDatabase>
+#include <QFontComboBox>
 #include <QFontDialog>
 #include <QFormLayout>
 #include <QGraphicsPixmapItem>
@@ -437,12 +439,23 @@ MainWindow::buildCentral ()
   m_textSizeLabel->setMinimumWidth (m_textSizeLabel->fontMetrics ().horizontalAdvance ("88 pt") + 4);
   connect (m_textSize, &QSlider::valueChanged, this, &MainWindow::setTextSize);
 
+  /* only fonts that cover the Hebrew block are offered */
+  m_textFont = new QFontComboBox ();
+  m_textFont->setObjectName ("textFont");
+  m_textFont->setWritingSystem (QFontDatabase::Hebrew);
+  m_textFont->setToolTip (tr ("Font for the recognized text. Only installed fonts that "
+                              "support Hebrew are listed."));
+  m_textFont->setMaximumWidth (240);
+  connect (m_textFont, &QFontComboBox::currentFontChanged, this, &MainWindow::setTextFamily);
+
   auto *textHeader = new QHBoxLayout ();
   textHeader->setContentsMargins (4, 2, 4, 2);
   textHeader->addStretch (1);
   textHeader->addWidget (new QLabel (tr ("Text size:")));
   textHeader->addWidget (m_textSize);
   textHeader->addWidget (m_textSizeLabel);
+  textHeader->addSpacing (8);
+  textHeader->addWidget (m_textFont);
 
   auto *textPane = new QWidget ();
   auto *textLayout = new QVBoxLayout (textPane);
@@ -476,9 +489,9 @@ MainWindow::buildSettingsDock ()
   m_fontModel->setToolTip (tr ("The letter-shape rules used for recognition. David, the common "
                                "Hebrew book typeface, is the only model the engine has; it also "
                                "reads many similar typefaces (-z).") + more);
-  m_nikud = new QCheckBox (tr ("Recognize nikud"));
-  m_nikud->setToolTip (tr ("Recognize vowel points, dagesh and shin/sin dots. Turn off for "
-                           "unvocalized text (-n).") + more);
+  m_niqud = new QCheckBox (tr ("Recognize niqud"));
+  m_niqud->setToolTip (tr ("Recognize niqud (vowel points), dagesh and the shin/sin dots. "
+                           "Turn off for unvocalized text (-n).") + more);
   m_linguistics = new QCheckBox (tr ("Linguistics check"));
   m_linguistics->setToolTip (tr ("Prefer final letter forms (ך ם ן ף ץ) at the end of words and "
                                  "regular forms inside words (-A).") + more);
@@ -490,7 +503,7 @@ MainWindow::buildSettingsDock ()
   m_format->setToolTip (tr ("Plain UTF-8 text, or HTML marking the position of every column, "
                             "paragraph and line on the page (-h).") + more);
   rec->addRow (tr ("Font model:"), m_fontModel);
-  rec->addRow (m_nikud);
+  rec->addRow (m_niqud);
   rec->addRow (m_linguistics);
   rec->addRow (m_ltr);
   rec->addRow (tr ("Output:"), m_format);
@@ -591,7 +604,7 @@ MainWindow::buildSettingsDock ()
   m_slicingLine = autoSpin (0, 90);
   m_slicingLine->setSuffix (tr ("%"));
   m_slicingLine->setToolTip (tr ("Also count ink this far above and below the line when deciding "
-                                 "where to cut, so nikud and tall letters are respected (-E).") + more);
+                                 "where to cut, so niqud and tall letters are respected (-E).") + more);
   seg->addRow (tr ("Columns:"), m_columns);
   seg->addRow (tr ("Word spacing:"), m_wordSpacing);
   seg->addRow (tr ("Slicing threshold:"), m_slicing);
@@ -636,7 +649,7 @@ MainWindow::buildSettingsDock ()
   auto update = [this] { updateCommandLine (); };
   for (QComboBox *c : { m_fontModel, m_format, m_thresholdType, m_columns, m_wordSpacing })
     connect (c, &QComboBox::currentIndexChanged, this, update);
-  for (QCheckBox *c : { m_nikud, m_linguistics, m_ltr, m_autoScale, m_autoRotate,
+  for (QCheckBox *c : { m_niqud, m_linguistics, m_ltr, m_autoScale, m_autoRotate,
                         m_opening, m_closing, m_erosion, m_dilation, m_grid, m_fontNumbers })
     connect (c, &QCheckBox::toggled, this, update);
   for (QSpinBox *sp : { m_threshold, m_adaptiveThreshold, m_scale,
@@ -665,31 +678,28 @@ MainWindow::updateThresholdControls ()
 void
 MainWindow::buildLogDock ()
 {
+  /* one row: the hebocr command for the current settings, and Copy */
   auto *w = new QWidget ();
-  auto *v = new QVBoxLayout (w);
-  v->setContentsMargins (4, 4, 4, 4);
-  auto *cmdRow = new QHBoxLayout ();
-  cmdRow->addWidget (new QLabel (tr ("Command line:")));
+  auto *row = new QHBoxLayout (w);
+  row->setContentsMargins (6, 4, 6, 4);
   m_commandLine = new QLineEdit ();
   m_commandLine->setObjectName ("commandLine");
   m_commandLine->setReadOnly (true);
-  m_commandLine->setToolTip (tr ("The equivalent hebocr command for the current settings."));
-  cmdRow->addWidget (m_commandLine, 1);
+  m_commandLine->setFont (QFontDatabase::systemFont (QFontDatabase::FixedFont));
+  m_commandLine->setToolTip (tr ("The hebocr command that does the same as the current settings. "
+                                 "Use it in scripts or a terminal."));
+  row->addWidget (m_commandLine, 1);
   auto *copyCmd = new QPushButton (tr ("Copy"));
+  copyCmd->setToolTip (tr ("Copy the command to the clipboard"));
   connect (copyCmd, &QPushButton::clicked, this, [this] {
     QApplication::clipboard ()->setText (m_commandLine->text ());
+    m_status->setText (tr ("Command copied to the clipboard."));
   });
-  cmdRow->addWidget (copyCmd);
-  v->addLayout (cmdRow);
+  row->addWidget (copyCmd);
+  w->setSizePolicy (QSizePolicy::Preferred, QSizePolicy::Fixed);
 
-  m_log = new QPlainTextEdit ();
-  m_log->setReadOnly (true);
-  m_log->setMaximumBlockCount (2000);
-  m_log->setFont (QFontDatabase::systemFont (QFontDatabase::FixedFont));
-  v->addWidget (m_log);
-
-  auto *dock = new QDockWidget (tr ("Engine"), this);
-  dock->setObjectName ("engineDock");
+  auto *dock = new QDockWidget (tr ("Equivalent Command"), this);
+  dock->setObjectName ("commandDock");
   dock->setWidget (w);
   dock->setFeatures (QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable
                      | QDockWidget::DockWidgetClosable);
@@ -703,7 +713,6 @@ MainWindow::buildLogDock ()
       viewMenu->addSeparator ();
       viewMenu->addAction (dock->toggleViewAction ());
     }
-  resizeDocks ({ dock }, { 140 }, Qt::Vertical);
 }
 
 /* ------------------------------------------------------------------ */
@@ -715,7 +724,7 @@ MainWindow::resetSettings ()
 {
   m_loadingSettings = true;
   m_fontModel->setCurrentIndex (0);
-  m_nikud->setChecked (true);
+  m_niqud->setChecked (true);
   m_linguistics->setChecked (false);
   m_ltr->setChecked (false);
   m_format->setCurrentIndex (0);
@@ -755,7 +764,7 @@ MainWindow::loadSettings ()
     split->restoreState (s.value ("window/splitter").toByteArray ());
 
   s.beginGroup ("ocr2");
-  m_nikud->setChecked (s.value ("nikud", true).toBool ());
+  m_niqud->setChecked (s.value ("nikud", true).toBool ());
   m_linguistics->setChecked (s.value ("linguistics", false).toBool ());
   m_ltr->setChecked (s.value ("ltr", false).toBool ());
   m_format->setCurrentIndex (s.value ("format", 0).toInt ());
@@ -795,6 +804,7 @@ MainWindow::loadSettings ()
     }
   m_text->setFont (font);
   m_loadingSettings = false;
+  setTextFamily (font);
   setTextSize (font.pointSize () > 0 ? font.pointSize () : 18);
   applyTextDirection ();
   updateThresholdControls ();
@@ -811,7 +821,7 @@ MainWindow::saveSettings ()
   s.setValue ("text/font", m_text->font ().toString ());
 
   s.beginGroup ("ocr2");
-  s.setValue ("nikud", m_nikud->isChecked ());
+  s.setValue ("nikud", m_niqud->isChecked ());
   s.setValue ("linguistics", m_linguistics->isChecked ());
   s.setValue ("ltr", m_ltr->isChecked ());
   s.setValue ("format", m_format->currentIndex ());
@@ -893,7 +903,7 @@ MainWindow::engineArguments (bool forDisplay) const
     a << "-h";
   if (m_fontModel->currentData ().toInt () > 0)
     a << "-z" << QString::number (m_fontModel->currentData ().toInt ());
-  if (!m_nikud->isChecked ())
+  if (!m_niqud->isChecked ())
     a << "-n";
   if (m_linguistics->isChecked ())
     a << "-A";
@@ -1013,14 +1023,10 @@ MainWindow::runOcr ()
   connect (m_process, &QProcess::finished, this, &MainWindow::processFinished);
   connect (m_process, &QProcess::errorOccurred, this, &MainWindow::processError);
   connect (m_process, &QProcess::readyRead, this, [this] {
-    appendLog (QString::fromLocal8Bit (m_process->readAll ()));
+    m_engineOutput += QString::fromLocal8Bit (m_process->readAll ());
   });
 
-  m_log->clear ();
-  appendLog (m_commandLine->text () + QLatin1Char ('\n'));
-  if (m_engineInput != m_imagePath)
-    appendLog (tr ("(converted %1 to grayscale PNG for the engine)\n")
-                 .arg (QFileInfo (m_imagePath).fileName ()));
+  m_engineOutput.clear ();
   m_bwView->clearImage (tr ("Working…"));
   m_layoutView->clearImage (tr ("Working…"));
 
@@ -1054,7 +1060,7 @@ void
 MainWindow::processFinished (int exitCode, QProcess::ExitStatus status)
 {
   const double secs = m_elapsed.elapsed () / 1000.0;
-  appendLog (QString::fromLocal8Bit (m_process->readAll ()));
+  m_engineOutput += QString::fromLocal8Bit (m_process->readAll ());
   m_process->deleteLater ();
   m_process = nullptr;
   setRunning (false);
@@ -1083,8 +1089,9 @@ MainWindow::processFinished (int exitCode, QProcess::ExitStatus status)
   QFile out (m_workDir->filePath ("output.txt"));
   if (exitCode != 0 || !out.open (QIODevice::ReadOnly))
     {
-      m_status->setText (tr ("The engine reported an error (exit code %1). See the Engine panel.")
-                           .arg (exitCode));
+      reportEngineError (exitCode != 0
+        ? tr ("The engine could not recognize this image (exit code %1).").arg (exitCode)
+        : tr ("The engine finished but produced no text file."));
       return;
     }
   const QString text = QString::fromUtf8 (out.readAll ());
@@ -1105,7 +1112,9 @@ MainWindow::processError (QProcess::ProcessError error)
     {
       setRunning (false);
       m_status->setText (tr ("Could not start the hebocr engine."));
-      appendLog (tr ("Could not start %1\n").arg (enginePath ()));
+      QMessageBox::critical (this, tr ("hebOCR"),
+        tr ("Could not start the hebocr engine:\n%1")
+          .arg (QDir::toNativeSeparators (enginePath ())));
       m_process->deleteLater ();
       m_process = nullptr;
     }
@@ -1139,13 +1148,16 @@ MainWindow::setRunning (bool running)
 }
 
 void
-MainWindow::appendLog (const QString &text)
+MainWindow::reportEngineError (const QString &summary)
 {
-  if (text.isEmpty ())
-    return;
-  m_log->moveCursor (QTextCursor::End);
-  m_log->insertPlainText (text);
-  m_log->moveCursor (QTextCursor::End);
+  m_status->setText (summary);
+  QMessageBox box (QMessageBox::Warning, tr ("hebOCR"), summary, QMessageBox::Ok, this);
+  QString details = tr ("Command:\n%1\n\nEngine messages:\n%2")
+                      .arg (m_commandLine->text (),
+                            m_engineOutput.trimmed ().isEmpty () ? tr ("(none)")
+                                                                 : m_engineOutput.trimmed ());
+  box.setDetailedText (details);
+  box.exec ();
 }
 
 /* ------------------------------------------------------------------ */
@@ -1237,6 +1249,7 @@ MainWindow::chooseTextFont ()
   if (ok)
     {
       m_text->setFont (font);
+      setTextFamily (font);
       setTextSize (font.pointSize ());
     }
 }
@@ -1260,29 +1273,33 @@ MainWindow::setTextSize (int points)
 }
 
 void
+MainWindow::setTextFamily (const QFont &chosen)
+{
+  QFont font = m_text->font ();
+  if (font.family () != chosen.family ())
+    {
+      font.setFamily (chosen.family ());
+      m_text->setFont (font);
+    }
+  if (m_textFont->currentFont ().family () != chosen.family ())
+    {
+      const QSignalBlocker block (m_textFont);
+      m_textFont->setCurrentFont (chosen);
+    }
+}
+
+void
 MainWindow::showGuide ()
 {
-  static QPointer<QDialog> dialog;
-  if (!dialog)
+  static QPointer<GuideWindow> guide;
+  if (!guide)
     {
-      dialog = new QDialog (this);
-      dialog->setWindowTitle (tr ("hebOCR Options Guide"));
-      dialog->setAttribute (Qt::WA_DeleteOnClose);
-      auto *browser = new QTextBrowser ();
-      browser->setOpenExternalLinks (true);
-      QFile f (QStringLiteral (":/docs/options.md"));
-      if (f.open (QIODevice::ReadOnly))
-        browser->setMarkdown (QString::fromUtf8 (f.readAll ()));
-      else
-        browser->setPlainText (tr ("The options guide is missing from this build."));
-      auto *layout = new QVBoxLayout (dialog);
-      layout->setContentsMargins (0, 0, 0, 0);
-      layout->addWidget (browser);
-      dialog->resize (820, 760);
+      guide = new GuideWindow (this);
+      guide->setAttribute (Qt::WA_DeleteOnClose);
     }
-  dialog->show ();
-  dialog->raise ();
-  dialog->activateWindow ();
+  guide->show ();
+  guide->raise ();
+  guide->activateWindow ();
 }
 
 bool
@@ -1298,9 +1315,10 @@ MainWindow::about ()
 {
   QMessageBox::about (this, tr ("About hebOCR"),
     tr ("<h3>hebOCR %1</h3>"
-        "<p>A free Hebrew OCR engine with nikud recognition.</p>"
+        "<p>A free Hebrew OCR engine with niqud recognition.</p>"
         "<p>Engine by Kobi (Yaacov) Zamir, with contributions by Diego Iastrubni "
-        "and others. Revived in 2026.</p>"
+        "and others. Revived in 2026 by Aharon N. Varady for "
+        "<a href=\"https://opensiddur.org\">the Open Siddur Project</a>.</p>"
         "<p>Free software under the GNU General Public License, version 3.</p>"
         "<p><a href=\"https://github.com/aharonium/hebocr\">github.com/aharonium/hebocr</a></p>")
       .arg (QStringLiteral (HEBOCR_VERSION)));

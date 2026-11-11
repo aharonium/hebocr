@@ -14,6 +14,7 @@
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QEventLoop>
+#include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QTimer>
 
@@ -71,6 +72,11 @@ main (int argc, char *argv[])
       if (parser.isSet (screenshotGuide))
         {
           window.showGuide ();
+          QApplication::processEvents ();
+          /* show the search in action */
+          for (QWidget *top : QApplication::topLevelWidgets ())
+            if (auto *search = top->findChild<QLineEdit *> ("guideSearch"))
+              search->setText ("word spacing");
           QApplication::processEvents ();
           for (QWidget *top : QApplication::topLevelWidgets ())
             if (top->isVisible () && top != &window)

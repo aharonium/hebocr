@@ -6,8 +6,13 @@
  */
 
 #include "mainwindow.h"
+#include "guidewindow.h"
 
 #include <QComboBox>
+#include <QFontComboBox>
+#include <QFontDatabase>
+#include <QDockWidget>
+#include <QTextBlock>
 #include <QDropEvent>
 #include <QLineEdit>
 #include <QMimeData>
@@ -146,6 +151,65 @@ private slots:
     thresholdType->setCurrentIndex (thresholdType->findData (1));
     QVERIFY (cmd->text ().contains ("-T 1"));
     QVERIFY (!adaptive->isEnabled ());
+  }
+
+  void
+  hebrewFontMenu ()
+  {
+    MainWindow w;
+    auto *fonts = w.findChild<QFontComboBox *> ("textFont");
+    auto *text = w.findChild<QPlainTextEdit *> ("ocrText");
+    QVERIFY (fonts && text);
+    QCOMPARE (fonts->writingSystem (), QFontDatabase::Hebrew);
+    QVERIFY (fonts->count () > 0);
+    /* every listed font supports Hebrew; choosing one changes the text font
+     * but keeps its size */
+    const int size = text->font ().pointSize ();
+    for (int i = 0; i < fonts->count (); ++i)
+      QVERIFY (QFontDatabase::writingSystems (fonts->itemText (i))
+                 .contains (QFontDatabase::Hebrew));
+    fonts->setCurrentIndex (fonts->count () - 1);
+    QCOMPARE (text->font ().family (), fonts->currentFont ().family ());
+    QCOMPARE (text->font ().pointSize (), size);
+  }
+
+  void
+  commandBarIsOneRow ()
+  {
+    MainWindow w;
+    auto *dock = w.findChild<QDockWidget *> ("commandDock");
+    QVERIFY (dock);
+    QCOMPARE (dock->windowTitle (), QStringLiteral ("Equivalent Command"));
+    /* the duplicate log under the command line is gone */
+    QCOMPARE (dock->widget ()->findChildren<QPlainTextEdit *> ().size (), 0);
+    QVERIFY (dock->widget ()->findChild<QLineEdit *> ("commandLine"));
+  }
+
+  void
+  guideSearchAndSize ()
+  {
+    GuideWindow g;
+    auto *search = g.findChild<QLineEdit *> ("guideSearch");
+    QVERIFY (search);
+    search->setText ("slicing");
+    QVERIFY (g.matchCount () > 3);
+    /* the current match is selected, i.e. text selection works */
+    QVERIFY (g.browser ()->textCursor ().selectedText ().compare ("slicing", Qt::CaseInsensitive) == 0);
+    search->setText ("zzzz-not-in-guide");
+    QCOMPARE (g.matchCount (), 0);
+
+    g.setTextSize (20);
+    QCOMPARE (g.browser ()->font ().pointSize (), 20);
+
+    /* section headings get extra space above them */
+    bool sawHeading = false;
+    for (QTextBlock b = g.browser ()->document ()->begin (); b.isValid (); b = b.next ())
+      if (b.blockFormat ().headingLevel () == 2)
+        {
+          sawHeading = true;
+          QVERIFY (b.blockFormat ().topMargin () > 20);
+        }
+    QVERIFY (sawHeading);
   }
 
   void

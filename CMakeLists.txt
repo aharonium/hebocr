@@ -104,7 +104,9 @@ if(HEBOCR_BUILD_GUI AND HEBOCR_BUILD_CLI)
     qt_add_executable(hebocr-gui WIN32
       gui/main.cpp
       gui/mainwindow.cpp
-      gui/mainwindow.h)
+      gui/mainwindow.h
+      gui/guidewindow.cpp
+      gui/guidewindow.h)
     target_compile_definitions(hebocr-gui PRIVATE
       HEBOCR_VERSION="${PROJECT_VERSION}")
     target_link_libraries(hebocr-gui PRIVATE Qt6::Widgets)
@@ -120,7 +122,9 @@ if(HEBOCR_BUILD_GUI AND HEBOCR_BUILD_CLI)
       qt_add_executable(hebocr-gui-tests
         gui/tests/test_gui.cpp
         gui/mainwindow.cpp
-        gui/mainwindow.h)
+        gui/mainwindow.h
+        gui/guidewindow.cpp
+        gui/guidewindow.h)
       target_include_directories(hebocr-gui-tests PRIVATE gui)
       target_compile_definitions(hebocr-gui-tests PRIVATE
         HEBOCR_VERSION="${PROJECT_VERSION}"
