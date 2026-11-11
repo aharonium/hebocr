@@ -164,7 +164,8 @@ ho_segment_lines_fine (const ho_bitmap * m,
   ho_bitmap *m_out;
 
   /* set the font dimentions info in the paragrap text matrix */
-  ho_dimentions_font_width_height_nikud (m, 12, 350, 12, 350);
+  /* note: this updates the font metrics stored in m despite the const */
+  ho_dimentions_font_width_height_nikud ((ho_bitmap *) m, 12, 350, 12, 350);
   
   m_clean = ho_bitmap_filter_by_size (m,
     (double) (m->font_height) * font_height_factor_min,

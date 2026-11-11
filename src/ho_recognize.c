@@ -49,6 +49,7 @@
 #include "fonts/ho_recognize_font_5.h"
 #include "fonts/ho_recognize_font_6.h"
 
+#include "ho_linguistics.h"
 #include "ho_recognize.h"
 
 int
