@@ -335,8 +335,11 @@ static GOptionEntry entries[] = {
     "left to right text", NULL},
   {"font", 'z', 0, G_OPTION_ARG_INT, &font_code,
     "recognition model: 0 David (default); 1..5 are empty", "NUM"},
-  {"no-nikud", 'n', 0, G_OPTION_ARG_NONE, &dont_recognize_nikud,
-    "do not recognize nikud", NULL},
+  {"no-niqud", 'n', 0, G_OPTION_ARG_NONE, &dont_recognize_nikud,
+    "do not recognize niqud (vowel points)", NULL},
+  /* older spelling, kept so existing scripts keep working */
+  {"no-nikud", 0, G_OPTION_FLAG_HIDDEN, G_OPTION_ARG_NONE, &dont_recognize_nikud,
+    "do not recognize niqud", NULL},
   {"linguistics", 'A', 0, G_OPTION_ARG_NONE, &do_linguistics,
     "do linguistics check", NULL},
   {"version", 'v', 0, G_OPTION_ARG_NONE, &version,

@@ -1,7 +1,7 @@
 hebOCR for Windows
 ==================
 
-hebOCR is a free Hebrew OCR engine that can recognize nikud (vowel
+hebOCR is a free Hebrew OCR engine that can recognize niqud (vowel
 points). It was written by Kobi (Yaacov) Zamir, with contributions by
 Diego Iastrubni and others, and is free software under the GNU GPL
 version 3 (see COPYING).
@@ -41,7 +41,7 @@ black-and-white TIFF. Color images are converted to grayscale.
 Useful options
 --------------
 
-  -n          do not recognize nikud (faster, for unvocalized text)
+  -n          do not recognize niqud (faster, for unvocalized text)
   -h          write HTML (hOCR, with positions) instead of plain text
   -w NUM      word spacing, -3 (tight) to 3 (spaced); try 2 for
               letter-spaced words

@@ -27,7 +27,7 @@ hebOCR works in stages. Each group of settings controls one of them.
 3. **Recognition.** Each letter is measured (height, width, position,
    edges, holes, …) and compared against a set of rules for each Hebrew
    letter. Dots and marks above and below letters are recognized
-   separately as nikud.
+   separately as niqud.
 4. **Output.** The letters are written out as text, line by line.
 
 When recognition is poor, look at the *Black & White* and *Layout* tabs
@@ -48,10 +48,10 @@ only the first of them ever had rules, and he removed those a month
 later. Choosing one makes every letter come out as `*`, so the program
 offers only David.
 
-**Recognize nikud** (on by default; `-n` turns it off). Recognizes
-the vowel points (kamatz, patach, tsere, segol, hiriq, holam, kubutz,
-shva, and the hataf vowels), dagesh (so shuruk comes out as vav with
-dagesh), and the shin and sin dots. Cantillation marks (te'amim) are not
+**Recognize niqud** (on by default; `-n` turns it off). Recognizes the
+vowel points (qamats, pataḥ, tsere, segol, ḥiriq, ḥolam, qubuts, shəva,
+and the ḥataf vowels), dagesh (so shuruq comes out as vav with dagesh),
+and the shin and sin dots. Cantillation marks (ṭe'amim) are not
 recognized. Turn it off for
 unvocalized text: it is faster, and stray specks are not mistaken for
 vowels.
@@ -201,7 +201,7 @@ width 254.
 *Auto* = 0). When measuring ink to decide where to cut, the engine
 normally looks only within the text line itself. Leeway extends that
 band above and below the line by this percentage of the line height, so
-that tall letters (ל), descenders (ק ן ף ץ) and nikud count too. Try
+that tall letters (ל), descenders (ק ן ף ץ) and niqud count too. Try
 20–40 if letters are being sliced through their vowel points or tails.
 
 ## Diagnostics
@@ -261,7 +261,7 @@ with `-O`. For example, `-O out/page -b` writes `out/page-image-bw.pgm`.
 - **Start from the defaults.** Change one setting at a time and compare
   the *Black & White* and *Layout* tabs.
 - **Resolution matters most.** Scans at 300 dpi or more work best. Small
-  type, especially with nikud, needs enough pixels for the dots.
+  type, especially with niqud, needs enough pixels for the dots.
 - **Letters broken or faint?** Raise *Adaptive threshold* (or switch to
   *Fixed* and raise *Threshold*), or try *Join broken letter parts* or
   *Restore faint letters*.
