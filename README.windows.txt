@@ -6,10 +6,26 @@ points). It was written by Kobi (Yaacov) Zamir, with contributions by
 Diego Iastrubni and others, and is free software under the GNU GPL
 version 3 (see COPYING).
 
-Keep hebocr.exe together with the .dll files in this folder.
+Keep hebocr.exe and hebocr-gui.exe together with the .dll files and
+subfolders in this folder.
 
-Basic use (in PowerShell or Command Prompt, from this folder)
---------------------------------------------------------------
+Using the graphical program
+---------------------------
+
+Double-click hebocr-gui.exe. Open an image (or drag one onto the
+window), adjust settings on the left if you like, and press Run OCR
+(F5). The recognized text appears on the right, where you can edit it
+and save it as UTF-8 text.
+
+The "Black & White" and "Layout" tabs show how the engine saw the
+page: the processed image, and the columns, lines and letters it found.
+If recognition is poor, these help you choose better settings. The
+Engine panel at the bottom shows the equivalent hebocr command line.
+
+Using the command-line program
+------------------------------
+
+Basic use (in PowerShell or Command Prompt, from this folder):
 
   .\hebocr.exe -i page.png -o page.txt
 
