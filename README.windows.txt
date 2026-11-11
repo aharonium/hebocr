@@ -19,8 +19,10 @@ and save it as UTF-8 text.
 
 The "Black & White" and "Layout" tabs show how the engine saw the
 page: the processed image, and the columns, lines and letters it found.
-If recognition is poor, these help you choose better settings. The
-Engine panel at the bottom shows the equivalent hebocr command line.
+If recognition is poor, these help you choose better settings. Hover
+over any setting for a short explanation, or press F1 for the full
+Options Guide. The Engine panel at the bottom shows the equivalent
+hebocr command line.
 
 Using the command-line program
 ------------------------------
@@ -40,13 +42,17 @@ Useful options
 --------------
 
   -n          do not recognize nikud (faster, for unvocalized text)
-  -h          write HTML instead of plain text
-  -z NUM      use recognition font NUM (1-6)
-  -c NUM      columns: 1.. number of columns, 0 auto
+  -h          write HTML (hOCR, with positions) instead of plain text
+  -w NUM      word spacing, -3 (tight) to 3 (spaced); try 2 for
+              letter-spaced words
+  -c NUM      columns: 0 auto, 1.. number of columns, 255 free layout
   -q DEG      rotate the image clockwise by DEG degrees
-  -A          run a linguistics check
+  -A          linguistics check (final letter forms at word ends)
 
   .\hebocr.exe --help-all     lists every option
+
+options-guide.md (also Help > Options Guide, F1, in hebocr-gui.exe)
+explains every option and when to change it.
 
 Tips
 ----
