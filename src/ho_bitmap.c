@@ -79,8 +79,15 @@ ho_bitmap_new (const int width, const int height)
   /* 
    * allocate memory for data (and set to zero)
    */
+  /*
+   * Many routines mark positions by drawing full-height lines and then
+   * probing row 2 (e.g. ho_bitmap_get (m, x, 2)). Always allocate at
+   * least 3 rows so those probes stay in bounds on very short bitmaps;
+   * the extra rows are zero and the reported height is unchanged.
+   */
   m_new->data =
-    calloc (m_new->height * m_new->rowstride, sizeof (unsigned char));
+    calloc ((m_new->height < 3 ? 3 : m_new->height) * m_new->rowstride,
+    sizeof (unsigned char));
   if (!(m_new->data))
   {
     free (m_new);
