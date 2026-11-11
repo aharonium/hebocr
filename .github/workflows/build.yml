@@ -1,0 +1,76 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    name: Windows (MSYS2 UCRT64)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-glib2
+            mingw-w64-ucrt-x86_64-libtiff
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Package hebocr.exe with its DLLs
+        run: |
+          mkdir -p dist
+          cp build/hebocr.exe dist/
+          # copy every DLL hebocr.exe needs from the MSYS2 environment
+          ldd build/hebocr.exe | awk '{print $3}' | grep -i '^/ucrt64/' \
+            | xargs -r -I{} cp {} dist/
+          cp COPYING README dist/
+          cp README.windows.txt dist/
+          ls -l dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hebocr-windows-x64
+          path: dist/
+
+  linux:
+    name: Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build pkg-config libglib2.0-dev libtiff-dev
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hebocr-linux-x64
+          path: build/hebocr

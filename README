@@ -1,3 +1,25 @@
+hebOCR revival (2026)
+---------------------
+
+This branch ("revival") continues development of hebOCR from the 0.11
+branch, with fixes merged from libhocr 0.10.18 (Dec 2013), a series of
+memory-safety fixes, PNG/JPEG input, and a CMake build that also works
+on Windows. Windows and Linux builds are produced automatically by
+GitHub Actions: see the Actions tab of
+https://github.com/aharonium/hebocr
+
+Building with CMake:
+
+  cmake -S . -B build
+  cmake --build build
+  ctest --test-dir build        (runs regression tests)
+
+Requires GLib 2 for the command-line tool; libtiff is optional.
+On Windows, build in an MSYS2 UCRT64 shell with the packages listed in
+.github/workflows/build.yml.
+
+Original README follows.
+
 hebOCR is a free Hebrew OCR (optical character recognition) library based on the
 hebocr c/c++ library originally written by Dr. by Kobi Zamir. The aim of this
 project is to develop a fully open-source and free OCR (or hebrew definition)
