@@ -119,12 +119,16 @@ if(HEBOCR_BUILD_GUI AND HEBOCR_BUILD_CLI)
     set(CMAKE_CXX_STANDARD 17)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
     qt_standard_project_setup()
-    set(HEBOCR_GUI_WIN_RC "")
+    set(HEBOCR_GUI_PLATFORM_FILES "")
     if(WIN32)
-      set(HEBOCR_GUI_WIN_RC gui/hebocr.rc)
+      set(HEBOCR_GUI_PLATFORM_FILES gui/hebocr.rc)
+    elseif(APPLE)
+      set(HEBOCR_GUI_PLATFORM_FILES gui/icons/hebocr.icns)
+      set_source_files_properties(gui/icons/hebocr.icns PROPERTIES
+        MACOSX_PACKAGE_LOCATION "Resources")
     endif()
-    qt_add_executable(hebocr-gui WIN32
-      ${HEBOCR_GUI_WIN_RC}
+    qt_add_executable(hebocr-gui WIN32 MACOSX_BUNDLE
+      ${HEBOCR_GUI_PLATFORM_FILES}
       gui/main.cpp
       gui/mainwindow.cpp
       gui/mainwindow.h
@@ -134,15 +138,35 @@ if(HEBOCR_BUILD_GUI AND HEBOCR_BUILD_CLI)
       HEBOCR_VERSION="${PROJECT_VERSION}"
       HEBOCR_BUILD_LABEL="${HEBOCR_BUILD_LABEL}")
     target_link_libraries(hebocr-gui PRIVATE Qt6::Widgets)
+
+    if(APPLE)
+      # hebOCR.app, with the command-line engine inside it next to the
+      # GUI (Contents/MacOS), where the GUI looks for it
+      set_target_properties(hebocr-gui PROPERTIES
+        OUTPUT_NAME "hebOCR"
+        MACOSX_BUNDLE_BUNDLE_NAME "hebOCR"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "org.opensiddur.hebocr"
+        MACOSX_BUNDLE_ICON_FILE "hebocr.icns"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_COPYRIGHT "GNU GPL v3 or later")
+      add_dependencies(hebocr-gui hebocr)
+      add_custom_command(TARGET hebocr-gui POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:hebocr> $<TARGET_FILE_DIR:hebocr-gui>/
+        COMMENT "Copying the hebocr engine into hebOCR.app")
+    endif()
+
     qt_add_resources(hebocr-gui "docs"
       PREFIX "/"
       FILES docs/options.md docs/third-party.md)
     qt_add_resources(hebocr-gui "icons"
       PREFIX "/"
       BASE gui
-      FILES gui/icons/hebocr-16.png gui/icons/hebocr-32.png gui/icons/hebocr-48.png
+      FILES gui/icons/hebocr-16.png gui/icons/hebocr-24.png gui/icons/hebocr-32.png gui/icons/hebocr-48.png
             gui/icons/hebocr-64.png gui/icons/hebocr-128.png gui/icons/hebocr-256.png)
-    install(TARGETS hebocr-gui RUNTIME DESTINATION bin)
+    install(TARGETS hebocr-gui
+      RUNTIME DESTINATION bin
+      BUNDLE DESTINATION .)
     if(UNIX AND NOT APPLE)
       install(FILES gui/hebocr.desktop DESTINATION share/applications)
       foreach(size 16 32 48 64 128 256 512)

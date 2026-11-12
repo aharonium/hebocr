@@ -27,7 +27,7 @@ main (int argc, char *argv[])
   QApplication::setOrganizationName ("hebOCR");
   QApplication::setApplicationVersion (QStringLiteral (HEBOCR_VERSION " (" HEBOCR_BUILD_LABEL ")"));
   QIcon icon;
-  for (int size : { 16, 32, 48, 64, 128, 256 })
+  for (int size : { 16, 24, 32, 48, 64, 128, 256 })
     icon.addFile (QStringLiteral (":/icons/hebocr-%1.png").arg (size), QSize (size, size));
   QApplication::setWindowIcon (icon);
   QApplication::setDesktopFileName ("hebocr");
