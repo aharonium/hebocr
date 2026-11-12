@@ -68,6 +68,9 @@
 #ifndef HEBOCR_VERSION
 #define HEBOCR_VERSION "dev"
 #endif
+#ifndef HEBOCR_BUILD_LABEL
+#define HEBOCR_BUILD_LABEL "local build"
+#endif
 
 /* first local file in a drag, or an empty string */
 static QString
@@ -1323,8 +1326,9 @@ MainWindow::about ()
   box.setWindowTitle (tr ("About hebOCR"));
   box.setIconPixmap (windowIcon ().pixmap (64, 64));
   box.setTextFormat (Qt::RichText);
-  box.setText (tr ("<h3>hebOCR %1</h3>"
-    "<p>A free Hebrew OCR engine with niqud recognition.</p>").arg (QStringLiteral (HEBOCR_VERSION)));
+  box.setText (tr ("<h3>hebOCR %1</h3><p><small>%2</small></p>"
+    "<p>A free Hebrew OCR engine with niqud recognition.</p>")
+      .arg (QStringLiteral (HEBOCR_VERSION), QStringLiteral (HEBOCR_BUILD_LABEL)));
   box.setInformativeText (tr (
     "<p>Engine by Kobi (Yaacov) Zamir, with contributions by Diego Iastrubni, "
     "Oron Peled, Yuval Tanny, Mikael Ylikoski, and Lior Kaplan and the Debian "
@@ -1349,8 +1353,11 @@ MainWindow::showThirdParty ()
   QString text = f.open (QIODevice::ReadOnly) ? QString::fromUtf8 (f.readAll ())
                                               : tr ("The notice is missing from this build.");
   /* in the Windows package, link the generated full list */
-  const QString notices = QDir (QCoreApplication::applicationDirPath ())
-                            .filePath ("THIRD-PARTY-NOTICES.txt");
+  /* Windows: next to the program; Linux AppImage: usr/share/doc/hebocr */
+  const QDir appDir (QCoreApplication::applicationDirPath ());
+  QString notices = appDir.filePath ("THIRD-PARTY-NOTICES.txt");
+  if (!QFileInfo::exists (notices))
+    notices = appDir.filePath ("../share/doc/hebocr/THIRD-PARTY-NOTICES.txt");
   if (QFileInfo::exists (notices))
     text += tr ("\n\n[Open the full list of bundled libraries (THIRD-PARTY-NOTICES.txt)](%1)")
               .arg (QUrl::fromLocalFile (notices).toString ());

@@ -139,10 +139,11 @@ ho_layout *l_page = NULL;
 /* progress indicator */
 gint progress;
 
-static gchar *copyright_message = "hocr %s - Hebrew OCR utility\n\
+static gchar *copyright_message = "hebocr %s - Hebrew OCR with niqud\n\
 %s\n\
-http://hocr.berlios.de\n\
-Copyright (C) 2005-2008 Yaacov Zamir <kzamir@walla.co.il>\n\
+https://github.com/aharonium/hebocr\n\
+Copyright (C) 2005-2013 Yaacov Zamir, Diego Iastrubni and contributors\n\
+Revived in 2026 by Aharon N. Varady for the Open Siddur Project\n\
 \n\
 This program is free software: you can redistribute it and/or modify\n\
 it under the terms of the GNU General Public License as published by\n\

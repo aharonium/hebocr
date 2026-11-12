@@ -12,8 +12,26 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 string(TIMESTAMP HEBOCR_BUILD_DATE "%Y%m%d")
-set(HEBOCR_BUILD_STR
-    "${PROJECT_NAME}-${PROJECT_VERSION}-${CMAKE_SYSTEM_NAME}-${HEBOCR_BUILD_DATE}")
+
+# Build identification shown next to the version, e.g. "build 42, a1b2c3d".
+# GitHub Actions numbers its runs; local builds say "local build".
+find_package(Git QUIET)
+set(HEBOCR_COMMIT "")
+if(GIT_FOUND)
+  execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    OUTPUT_VARIABLE HEBOCR_COMMIT OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+endif()
+if(DEFINED ENV{GITHUB_RUN_NUMBER})
+  set(HEBOCR_BUILD_LABEL "build $ENV{GITHUB_RUN_NUMBER}")
+else()
+  set(HEBOCR_BUILD_LABEL "local build")
+endif()
+if(HEBOCR_COMMIT)
+  string(APPEND HEBOCR_BUILD_LABEL ", ${HEBOCR_COMMIT}")
+endif()
+message(STATUS "hebOCR ${PROJECT_VERSION} (${HEBOCR_BUILD_LABEL})")
+set(HEBOCR_BUILD_STR "${HEBOCR_BUILD_LABEL}, ${HEBOCR_BUILD_DATE}")
 
 # ---------------------------------------------------------------------------
 # libhebocr: the recognition engine
@@ -101,19 +119,38 @@ if(HEBOCR_BUILD_GUI AND HEBOCR_BUILD_CLI)
     set(CMAKE_CXX_STANDARD 17)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
     qt_standard_project_setup()
+    set(HEBOCR_GUI_WIN_RC "")
+    if(WIN32)
+      set(HEBOCR_GUI_WIN_RC gui/hebocr.rc)
+    endif()
     qt_add_executable(hebocr-gui WIN32
+      ${HEBOCR_GUI_WIN_RC}
       gui/main.cpp
       gui/mainwindow.cpp
       gui/mainwindow.h
       gui/guidewindow.cpp
       gui/guidewindow.h)
     target_compile_definitions(hebocr-gui PRIVATE
-      HEBOCR_VERSION="${PROJECT_VERSION}")
+      HEBOCR_VERSION="${PROJECT_VERSION}"
+      HEBOCR_BUILD_LABEL="${HEBOCR_BUILD_LABEL}")
     target_link_libraries(hebocr-gui PRIVATE Qt6::Widgets)
     qt_add_resources(hebocr-gui "docs"
       PREFIX "/"
       FILES docs/options.md docs/third-party.md)
+    qt_add_resources(hebocr-gui "icons"
+      PREFIX "/"
+      BASE gui
+      FILES gui/icons/hebocr-16.png gui/icons/hebocr-32.png gui/icons/hebocr-48.png
+            gui/icons/hebocr-64.png gui/icons/hebocr-128.png gui/icons/hebocr-256.png)
     install(TARGETS hebocr-gui RUNTIME DESTINATION bin)
+    if(UNIX AND NOT APPLE)
+      install(FILES gui/hebocr.desktop DESTINATION share/applications)
+      foreach(size 16 32 48 64 128 256 512)
+        install(FILES gui/icons/hebocr-${size}.png
+          DESTINATION share/icons/hicolor/${size}x${size}/apps
+          RENAME hebocr.png)
+      endforeach()
+    endif()
 
     # smoke test: open a page, run OCR through the GUI, require some text
     # (headless; Windows CI can't create the offscreen display reliably)
@@ -128,6 +165,7 @@ if(HEBOCR_BUILD_GUI AND HEBOCR_BUILD_CLI)
       target_include_directories(hebocr-gui-tests PRIVATE gui)
       target_compile_definitions(hebocr-gui-tests PRIVATE
         HEBOCR_VERSION="${PROJECT_VERSION}"
+        HEBOCR_BUILD_LABEL="${HEBOCR_BUILD_LABEL}"
         TEST_IMAGE="${CMAKE_CURRENT_SOURCE_DIR}/tests/images/genesis_nikud.png")
       target_link_libraries(hebocr-gui-tests PRIVATE Qt6::Widgets Qt6::Test)
       qt_add_resources(hebocr-gui-tests "docs_tests"

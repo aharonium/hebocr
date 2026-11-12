@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=hebOCR
+GenericName=Hebrew OCR
+GenericName[he]=זיהוי תווים אופטי בעברית
+Comment=Recognize Hebrew text with niqud in scanned images
+Comment[he]=זיהוי טקסט עברי מנוקד בתמונות סרוקות
+Exec=hebocr-gui %f
+Icon=hebocr
+Terminal=false
+Categories=Office;Graphics;OCR;Scanning;
+MimeType=image/png;image/jpeg;image/tiff;image/bmp;image/gif;image/x-portable-anymap;
+Keywords=OCR;Hebrew;niqud;scan;text;

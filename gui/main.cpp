@@ -14,6 +14,7 @@
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QEventLoop>
+#include <QIcon>
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QTimer>
@@ -24,7 +25,12 @@ main (int argc, char *argv[])
   QApplication app (argc, argv);
   QApplication::setApplicationName ("hebOCR");
   QApplication::setOrganizationName ("hebOCR");
-  QApplication::setApplicationVersion (HEBOCR_VERSION);
+  QApplication::setApplicationVersion (QStringLiteral (HEBOCR_VERSION " (" HEBOCR_BUILD_LABEL ")"));
+  QIcon icon;
+  for (int size : { 16, 32, 48, 64, 128, 256 })
+    icon.addFile (QStringLiteral (":/icons/hebocr-%1.png").arg (size), QSize (size, size));
+  QApplication::setWindowIcon (icon);
+  QApplication::setDesktopFileName ("hebocr");
 
   QCommandLineParser parser;
   parser.setApplicationDescription ("Graphical front end for the hebOCR Hebrew OCR engine");
