@@ -96,6 +96,7 @@ private slots:
   void processError (QProcess::ProcessError error);
   void tick ();
   void about ();
+  void showThirdParty ();
   void setTextSize (int points);
   void setTextFamily (const QFont &font);
   void updateThresholdControls ();

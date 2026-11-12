@@ -111,6 +111,16 @@ needs expert tuning.
   on the page image, and the reverse.
 - **Windows installer** with Start menu entry and file associations, and
   a signed executable.
+- **macOS builds.** Qt and the engine run on macOS; GitHub can build them
+  for Apple silicon Macs. A downloadable app opens with a security warning
+  unless it is signed and notarized, which needs an Apple Developer
+  account.
+- **Linux packages that run anywhere.** Today's Linux download needs Qt 6
+  installed (as on Ubuntu 24.04 and similar). An AppImage, a single file
+  that runs on most distributions, or a Flatpak on Flathub, would bundle
+  it.
+- **Release notes from the changelog**, attached automatically to each
+  GitHub release.
 
 ## Done
 

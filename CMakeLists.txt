@@ -112,7 +112,7 @@ if(HEBOCR_BUILD_GUI AND HEBOCR_BUILD_CLI)
     target_link_libraries(hebocr-gui PRIVATE Qt6::Widgets)
     qt_add_resources(hebocr-gui "docs"
       PREFIX "/"
-      FILES docs/options.md)
+      FILES docs/options.md docs/third-party.md)
     install(TARGETS hebocr-gui RUNTIME DESTINATION bin)
 
     # smoke test: open a page, run OCR through the GUI, require some text
@@ -132,7 +132,7 @@ if(HEBOCR_BUILD_GUI AND HEBOCR_BUILD_CLI)
       target_link_libraries(hebocr-gui-tests PRIVATE Qt6::Widgets Qt6::Test)
       qt_add_resources(hebocr-gui-tests "docs_tests"
         PREFIX "/"
-        FILES docs/options.md)
+        FILES docs/options.md docs/third-party.md)
       add_test(NAME gui_tests COMMAND hebocr-gui-tests)
       set_tests_properties(gui_tests PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;XDG_CONFIG_HOME=${CMAKE_CURRENT_BINARY_DIR}/gui_tests_config")

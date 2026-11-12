@@ -51,6 +51,7 @@
 #include <QSlider>
 #include <QTextBrowser>
 #include <QDialog>
+#include <QDialogButtonBox>
 #include <QSettings>
 #include <QSpinBox>
 #include <QSplitter>
@@ -381,6 +382,11 @@ MainWindow::buildActions ()
   QAction *guideAct = helpMenu->addAction (tr ("&Options Guide"));
   guideAct->setShortcut (QKeySequence::HelpContents);
   connect (guideAct, &QAction::triggered, this, &MainWindow::showGuide);
+  helpMenu->addSeparator ();
+  QAction *thirdPartyAct = helpMenu->addAction (tr ("&Third-Party Software"));
+  connect (thirdPartyAct, &QAction::triggered, this, &MainWindow::showThirdParty);
+  QAction *aboutQtAct = helpMenu->addAction (tr ("About &Qt"));
+  connect (aboutQtAct, &QAction::triggered, qApp, &QApplication::aboutQt);
   helpMenu->addSeparator ();
   QAction *aboutAct = helpMenu->addAction (tr ("&About hebOCR"));
   connect (aboutAct, &QAction::triggered, this, &MainWindow::about);
@@ -1313,15 +1319,49 @@ MainWindow::maybeDiscardEdits ()
 void
 MainWindow::about ()
 {
-  QMessageBox::about (this, tr ("About hebOCR"),
-    tr ("<h3>hebOCR %1</h3>"
-        "<p>A free Hebrew OCR engine with niqud recognition.</p>"
-        "<p>Engine by Kobi (Yaacov) Zamir, with contributions by Diego Iastrubni "
-        "and others. Revived in 2026 by Aharon N. Varady for "
-        "<a href=\"https://opensiddur.org\">the Open Siddur Project</a>.</p>"
-        "<p>Free software under the GNU General Public License, version 3.</p>"
-        "<p><a href=\"https://github.com/aharonium/hebocr\">github.com/aharonium/hebocr</a></p>")
-      .arg (QStringLiteral (HEBOCR_VERSION)));
+  QMessageBox box (this);
+  box.setWindowTitle (tr ("About hebOCR"));
+  box.setIconPixmap (windowIcon ().pixmap (64, 64));
+  box.setTextFormat (Qt::RichText);
+  box.setText (tr ("<h3>hebOCR %1</h3>"
+    "<p>A free Hebrew OCR engine with niqud recognition.</p>").arg (QStringLiteral (HEBOCR_VERSION)));
+  box.setInformativeText (tr (
+    "<p>Engine by Kobi (Yaacov) Zamir, with contributions by Diego Iastrubni, "
+    "Oron Peled, Yuval Tanny, Mikael Ylikoski, and Lior Kaplan and the Debian "
+    "Hebrew Packaging Team.</p>"
+    "<p>Revived in 2026 by Aharon N. Varady for "
+    "<a href=\"https://opensiddur.org\">the Open Siddur Project</a>.</p>"
+    "<p>Free software under the GNU General Public License, version 3 or later. "
+    "Built with Qt, GLib, LibTIFF and stb_image: see Help ▸ Third-Party Software.</p>"
+    "<p><a href=\"https://github.com/aharonium/hebocr\">github.com/aharonium/hebocr</a></p>"));
+  box.setStandardButtons (QMessageBox::Ok);
+  box.exec ();
+}
+
+void
+MainWindow::showThirdParty ()
+{
+  QDialog dialog (this);
+  dialog.setWindowTitle (tr ("Third-Party Software"));
+  auto *browser = new QTextBrowser ();
+  browser->setOpenExternalLinks (true);
+  QFile f (QStringLiteral (":/docs/third-party.md"));
+  QString text = f.open (QIODevice::ReadOnly) ? QString::fromUtf8 (f.readAll ())
+                                              : tr ("The notice is missing from this build.");
+  /* in the Windows package, link the generated full list */
+  const QString notices = QDir (QCoreApplication::applicationDirPath ())
+                            .filePath ("THIRD-PARTY-NOTICES.txt");
+  if (QFileInfo::exists (notices))
+    text += tr ("\n\n[Open the full list of bundled libraries (THIRD-PARTY-NOTICES.txt)](%1)")
+              .arg (QUrl::fromLocalFile (notices).toString ());
+  browser->setMarkdown (text);
+  auto *buttons = new QDialogButtonBox (QDialogButtonBox::Close);
+  connect (buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+  auto *layout = new QVBoxLayout (&dialog);
+  layout->addWidget (browser);
+  layout->addWidget (buttons);
+  dialog.resize (720, 640);
+  dialog.exec ();
 }
 
 /* ------------------------------------------------------------------ */

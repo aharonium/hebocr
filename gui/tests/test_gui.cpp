@@ -213,6 +213,16 @@ private slots:
   }
 
   void
+  thirdPartyNoticeIsBundled ()
+  {
+    QFile notice (QStringLiteral (":/docs/third-party.md"));
+    QVERIFY (notice.open (QIODevice::ReadOnly));
+    const QString text = QString::fromUtf8 (notice.readAll ());
+    for (const char *name : { "Qt 6", "GLib", "LibTIFF", "stb_image", "Lesser General Public" })
+      QVERIFY2 (text.contains (QLatin1String (name)), name);
+  }
+
+  void
   optionsGuideIsBundled ()
   {
     QFile guide (QStringLiteral (":/docs/options.md"));

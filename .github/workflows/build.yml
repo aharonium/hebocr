@@ -64,6 +64,50 @@ jobs:
           done | sort -u | xargs -r -I{} cp -n {} dist/
           cp COPYING README README.windows.txt dist/
           cp docs/options.md dist/options-guide.md
+          cp CHANGELOG.md docs/third-party.md dist/
+
+      - name: Collect licenses of bundled libraries
+        run: |
+          # every DLL in the package comes from an MSYS2 package; record
+          # each package's version, home page and license, and copy its
+          # license files
+          mkdir -p dist/licenses
+          : > pkgs.txt
+          for f in dist/*.dll; do
+            b=$(basename "$f")
+            if [ -f "/ucrt64/bin/$b" ]; then
+              pacman -Qqo "/ucrt64/bin/$b" >> pkgs.txt 2>/dev/null || true
+            fi
+          done
+          # Qt plugins live in subfolders; their packages:
+          echo mingw-w64-ucrt-x86_64-qt6-base >> pkgs.txt
+          echo mingw-w64-ucrt-x86_64-qt6-imageformats >> pkgs.txt
+          sort -u pkgs.txt -o pkgs.txt
+          {
+            echo "Third-party software in the hebOCR Windows package"
+            echo "=================================================="
+            echo
+            echo "hebOCR itself is licensed under the GNU GPL, version 3 or later"
+            echo "(COPYING). The libraries below are bundled with it; each is used"
+            echo "under its own license. License texts are in the licenses folder."
+            echo "See also third-party.md."
+            echo
+            while read -r p; do
+              pacman -Qi "$p" | grep -E '^(Name|Version|URL|Licenses)' || true
+              echo
+            done < pkgs.txt
+          } > dist/THIRD-PARTY-NOTICES.txt
+          while read -r p; do
+            short=${p#mingw-w64-ucrt-x86_64-}
+            pacman -Qlq "$p" | grep '/share/licenses/.*[^/]$' | while read -r lf; do
+              mkdir -p "dist/licenses/$short"
+              cp "$lf" "dist/licenses/$short/"
+            done || true
+          done < pkgs.txt
+          echo "packages: $(wc -l < pkgs.txt); license folders: $(ls dist/licenses | wc -l)"
+          if [ ! -d dist/licenses/libtiff ]; then
+            echo "::warning::no license files found for libtiff"
+          fi
           ls -l dist
 
       - uses: actions/upload-artifact@v4
@@ -118,6 +162,6 @@ jobs:
         run: |
           tag="${{ github.event.release.tag_name }}"
           mkdir -p "hebocr-$tag-linux-x64"
-          cp build/hebocr build/hebocr-gui COPYING README "hebocr-$tag-linux-x64/"
+          cp build/hebocr build/hebocr-gui COPYING README CHANGELOG.md "hebocr-$tag-linux-x64/"
           tar czf "hebocr-$tag-linux-x64.tar.gz" "hebocr-$tag-linux-x64"
           gh release upload "$tag" "hebocr-$tag-linux-x64.tar.gz" --clobber
