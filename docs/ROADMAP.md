@@ -110,10 +110,10 @@ needs expert tuning.
 - **Side-by-side proofreading**: click a line of text to highlight it
   on the page image, and the reverse.
 - **Windows installer** with Start menu entry and file associations.
-- **macOS builds.** Qt and the engine run on macOS; GitHub can build them
-  for Apple silicon Macs. A downloadable app opens with a security warning
-  unless it is signed and notarized, which needs an Apple Developer
-  account.
+- **Signed and notarized macOS app**, so macOS opens it without the
+  "unidentified developer" refusal. This needs an Apple Developer account
+  (US$99 a year).
+- **Intel Macs.** The macOS app is built for Apple silicon only.
 - **Older Linux distributions.** The AppImage is built on Ubuntu 24.04
   and needs glibc 2.39 or newer. Building it on an older base would let
   it run on Ubuntu 22.04, Debian 12 and similar. A Flatpak on Flathub is
@@ -131,4 +131,4 @@ needs expert tuning.
   CMake build; automated builds and releases.
 - **0.12.0**: hebocr-gui for one page at a time; options guide; corrected
   command-line help; multi-column pages read right to left, with titles
-  and full-width bands in place; Linux AppImage.
+  and full-width bands in place; Linux AppImage; macOS app.

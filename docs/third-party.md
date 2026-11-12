@@ -49,6 +49,15 @@ their copyright and license files. (Run the AppImage with
 `--appimage-extract` to unpack it and see them.) The bundled libraries
 can be replaced in the unpacked folder.
 
+## The macOS app
+
+hebOCR.app bundles Qt, GLib, LibTIFF and the libraries they depend on,
+taken from Homebrew (<https://brew.sh>). Inside the app,
+`Contents/Resources/THIRD-PARTY-NOTICES.txt` lists each with its
+version, home page and license, and `Contents/Resources/licenses` holds
+their license texts (in Finder: right-click hebOCR, Show Package
+Contents).
+
 ## Earlier contributors
 
 The hebOCR engine was written by Kobi (Yaacov) Zamir, with contributions

@@ -8,6 +8,12 @@ Downloads: https://github.com/aharonium/hebocr/releases
   because the program is not yet code-signed: choose "More info", then
   "Run anyway".
 
+  macOS (Apple silicon, macOS 14 or later): open
+  hebocr-<version>-macos-arm64.dmg and drag hebOCR to Applications. The
+  first time, macOS refuses to open it because it is not signed by a
+  registered Apple developer: open System Settings > Privacy & Security
+  and click "Open Anyway". "Read Me.txt" in the disk image explains.
+
   Linux: download hebocr-<version>-x86_64.AppImage, make it executable
   (chmod +x, or Properties > Permissions in your file manager) and run
   it. It needs a distribution at least as new as Ubuntu 24.04 (glibc

@@ -1358,6 +1358,8 @@ MainWindow::showThirdParty ()
   QString notices = appDir.filePath ("THIRD-PARTY-NOTICES.txt");
   if (!QFileInfo::exists (notices))
     notices = appDir.filePath ("../share/doc/hebocr/THIRD-PARTY-NOTICES.txt");
+  if (!QFileInfo::exists (notices)) /* macOS: hebOCR.app/Contents/Resources */
+    notices = appDir.filePath ("../Resources/THIRD-PARTY-NOTICES.txt");
   if (QFileInfo::exists (notices))
     text += tr ("\n\n[Open the full list of bundled libraries (THIRD-PARTY-NOTICES.txt)](%1)")
               .arg (QUrl::fromLocalFile (notices).toString ());
