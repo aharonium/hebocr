@@ -109,16 +109,19 @@ needs expert tuning.
   "modern print".
 - **Side-by-side proofreading**: click a line of text to highlight it
   on the page image, and the reverse.
-- **Windows installer** with Start menu entry and file associations, and
-  a signed executable.
+- **Windows installer** with Start menu entry and file associations.
 - **macOS builds.** Qt and the engine run on macOS; GitHub can build them
   for Apple silicon Macs. A downloadable app opens with a security warning
   unless it is signed and notarized, which needs an Apple Developer
   account.
-- **Linux packages that run anywhere.** Today's Linux download needs Qt 6
-  installed (as on Ubuntu 24.04 and similar). An AppImage, a single file
-  that runs on most distributions, or a Flatpak on Flathub, would bundle
-  it.
+- **Older Linux distributions.** The AppImage is built on Ubuntu 24.04
+  and needs glibc 2.39 or newer. Building it on an older base would let
+  it run on Ubuntu 22.04, Debian 12 and similar. A Flatpak on Flathub is
+  another way to reach Linux users.
+- **Code signing for Windows**, so Windows stops warning about an
+  unknown publisher. Options include the SignPath Foundation's free
+  signing for open-source projects and Microsoft's paid Trusted Signing
+  service; both require verifying the project's identity.
 - **Release notes from the changelog**, attached automatically to each
   GitHub release.
 
@@ -128,4 +131,4 @@ needs expert tuning.
   CMake build; automated builds and releases.
 - **0.12.0**: hebocr-gui for one page at a time; options guide; corrected
   command-line help; multi-column pages read right to left, with titles
-  and full-width bands in place.
+  and full-width bands in place; Linux AppImage.

@@ -39,6 +39,16 @@ libraries, and font and text-shaping libraries used by Qt. The file
 its version, home page and license, and the `licenses` folder contains
 their license texts.
 
+## The Linux AppImage
+
+The AppImage bundles Qt, GLib, LibTIFF and the libraries they depend on,
+taken from Ubuntu 24.04 packages. Inside the AppImage,
+`usr/share/doc/hebocr/THIRD-PARTY-NOTICES.txt` lists each package with
+its version and home page, and `usr/share/doc/hebocr/licenses` holds
+their copyright and license files. (Run the AppImage with
+`--appimage-extract` to unpack it and see them.) The bundled libraries
+can be replaced in the unpacked folder.
+
 ## Earlier contributors
 
 The hebOCR engine was written by Kobi (Yaacov) Zamir, with contributions

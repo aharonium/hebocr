@@ -1,6 +1,19 @@
 hebOCR revival (2026)
 ---------------------
 
+Downloads: https://github.com/aharonium/hebocr/releases
+
+  Windows: unzip hebocr-<version>-windows-x64.zip anywhere and run
+  hebocr-gui.exe. Windows may warn that the publisher is unknown,
+  because the program is not yet code-signed: choose "More info", then
+  "Run anyway".
+
+  Linux: download hebocr-<version>-x86_64.AppImage, make it executable
+  (chmod +x, or Properties > Permissions in your file manager) and run
+  it. It needs a distribution at least as new as Ubuntu 24.04 (glibc
+  2.39). The command-line engine is inside it: run the AppImage with
+  --appimage-extract and use squashfs-root/usr/bin/hebocr.
+
 This branch ("revival") continues development of hebOCR from the 0.11
 branch, with fixes merged from libhocr 0.10.18 (Dec 2013), a series of
 memory-safety fixes, PNG/JPEG input, and a CMake build that also works

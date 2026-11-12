@@ -127,18 +127,24 @@ jobs:
           gh release upload $tag $zip --clobber
 
   linux:
-    name: Linux
-    # pinned: package names below are those of Ubuntu 24.04
+    name: Linux (AppImage)
+    # pinned: package names below are those of Ubuntu 24.04. The AppImage
+    # runs on distributions at least as new (glibc 2.39 or later).
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      LINUXDEPLOY_VERSION: 1-alpha-20251107-1
+      LINUXDEPLOY_SHA256: c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d
+      LINUXDEPLOY_QT_VERSION: 1-alpha-20250213-1
+      LINUXDEPLOY_QT_SHA256: 15106be885c1c48a021198e7e1e9a48ce9d02a86dd0a1848f00bdbf3c1c92724
     steps:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 cmake ninja-build pkg-config libglib2.0-dev libtiff-dev qt6-base-dev qt6-image-formats-plugins libgl-dev
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 cmake ninja-build pkg-config libglib2.0-dev libtiff-dev qt6-base-dev qt6-image-formats-plugins libgl-dev xvfb xauth
 
       - name: Configure
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
 
       - name: Build
         run: cmake --build build
@@ -148,20 +154,81 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
 
+      - name: Build the AppImage
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
+          QMAKE: /usr/lib/qt6/bin/qmake6
+        run: |
+          DESTDIR=AppDir cmake --install build
+          rm -f AppDir/usr/lib/libhebocr.a
+          rm -rf AppDir/usr/include
+          curl -sSfL -o linuxdeploy-x86_64.AppImage \
+            "https://github.com/linuxdeploy/linuxdeploy/releases/download/$LINUXDEPLOY_VERSION/linuxdeploy-x86_64.AppImage"
+          curl -sSfL -o linuxdeploy-plugin-qt-x86_64.AppImage \
+            "https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/$LINUXDEPLOY_QT_VERSION/linuxdeploy-plugin-qt-x86_64.AppImage"
+          echo "$LINUXDEPLOY_SHA256  linuxdeploy-x86_64.AppImage" | sha256sum -c -
+          echo "$LINUXDEPLOY_QT_SHA256  linuxdeploy-plugin-qt-x86_64.AppImage" | sha256sum -c -
+          chmod +x linuxdeploy*.AppImage
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir \
+            --executable AppDir/usr/bin/hebocr \
+            --executable AppDir/usr/bin/hebocr-gui \
+            --desktop-file AppDir/usr/share/applications/hebocr.desktop \
+            --icon-file gui/icons/hebocr-256.png --icon-filename hebocr \
+            --plugin qt
+          # license notices for every bundled library, from the Ubuntu
+          # package it came from
+          notices=AppDir/usr/share/doc/hebocr
+          mkdir -p "$notices/licenses"
+          cp COPYING CHANGELOG.md docs/third-party.md "$notices/"
+          : > pkgs.txt
+          find AppDir/usr/lib AppDir/usr/plugins -name '*.so*' -type f | while read -r f; do
+            b=$(basename "$f")
+            orig=$(find /usr/lib /lib -name "$b" 2>/dev/null | head -1)
+            if [ -n "$orig" ]; then
+              dpkg -S "$orig" 2>/dev/null | head -1 | cut -d: -f1 >> pkgs.txt || true
+            fi
+          done
+          sort -u pkgs.txt -o pkgs.txt
+          {
+            echo "Third-party software in the hebOCR AppImage"
+            echo "==========================================="
+            echo
+            echo "hebOCR itself is licensed under the GNU GPL, version 3 or later"
+            echo "(COPYING). The libraries below, from Ubuntu 24.04 packages, are"
+            echo "bundled with it; each is used under its own license. Copyright and"
+            echo "license texts are in the licenses folder. See also third-party.md."
+            echo
+            while read -r p; do
+              dpkg-query -W -f='${Package} ${Version}  ${Homepage}\n' "$p" 2>/dev/null || echo "$p"
+              if [ -f "/usr/share/doc/$p/copyright" ]; then
+                mkdir -p "$notices/licenses/$p"
+                cp "/usr/share/doc/$p/copyright" "$notices/licenses/$p/"
+              fi
+            done < pkgs.txt
+          } > "$notices/THIRD-PARTY-NOTICES.txt"
+          echo "packages: $(wc -l < pkgs.txt); license folders: $(ls "$notices/licenses" | wc -l)"
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir --output appimage
+          mv hebOCR-x86_64.AppImage hebocr-x86_64.AppImage
+          ls -l hebocr-x86_64.AppImage
+
+      - name: Test the AppImage
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: |
+          xvfb-run -a ./hebocr-x86_64.AppImage --version
+          xvfb-run -a -s "-screen 0 1600x1000x24" ./hebocr-x86_64.AppImage \
+            --screenshot appimage-test.png tests/images/genesis_nikud.png
+
       - uses: actions/upload-artifact@v4
         with:
-          name: hebocr-linux-x64
-          path: |
-            build/hebocr
-            build/hebocr-gui
+          name: hebocr-linux-x86_64-appimage
+          path: hebocr-x86_64.AppImage
 
-      - name: Attach tarball to release
+      - name: Attach AppImage to release
         if: github.event_name == 'release'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="${{ github.event.release.tag_name }}"
-          mkdir -p "hebocr-$tag-linux-x64"
-          cp build/hebocr build/hebocr-gui COPYING README CHANGELOG.md "hebocr-$tag-linux-x64/"
-          tar czf "hebocr-$tag-linux-x64.tar.gz" "hebocr-$tag-linux-x64"
-          gh release upload "$tag" "hebocr-$tag-linux-x64.tar.gz" --clobber
+          cp hebocr-x86_64.AppImage "hebocr-$tag-x86_64.AppImage"
+          gh release upload "$tag" "hebocr-$tag-x86_64.AppImage" --clobber

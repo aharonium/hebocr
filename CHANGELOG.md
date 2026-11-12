@@ -24,6 +24,14 @@ history of the original project (2005–2013) is in the file `ChangeLog`.
   program, with search and adjustable text size): explains every setting
   and option, how the engine reads a page, and its known limitations.
 - **Roadmap** of planned work (`docs/ROADMAP.md`).
+- **Linux AppImage**: a single file that runs on most Linux distributions
+  (as new as Ubuntu 24.04 or newer) without installing anything. It
+  replaces the Linux download that needed Qt installed.
+- A program icon, and the build number shown next to the version in
+  About and in `hebocr --version`.
+- Credits for all known contributors, and Help ▸ Third-Party Software and
+  Help ▸ About Qt; both downloads include the license notices of every
+  bundled library.
 - The command-line option `--no-niqud` (`--no-nikud` still works).
 
 ### Fixed
