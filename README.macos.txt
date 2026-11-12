@@ -5,7 +5,7 @@ hebOCR is a free Hebrew OCR engine that can recognize niqud (vowel
 points). It was written by Kobi (Yaacov) Zamir, with contributions by
 Diego Iastrubni and others, and is free software under the GNU GPL
 version 3 (see COPYING). This build runs on Macs with Apple silicon
-(M1 or later) and macOS 14 Sonoma or later.
+(M1 or later) and macOS 15 Sequoia or later.
 
 Installing
 ----------

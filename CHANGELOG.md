@@ -24,7 +24,7 @@ history of the original project (2005–2013) is in the file `ChangeLog`.
   program, with search and adjustable text size): explains every setting
   and option, how the engine reads a page, and its known limitations.
 - **Roadmap** of planned work (`docs/ROADMAP.md`).
-- **macOS app** for Macs with Apple silicon (macOS 14 Sonoma or later), as
+- **macOS app** for Macs with Apple silicon (macOS 15 Sequoia or later), as
   a disk image.
 - **Linux AppImage**: a single file that runs on most Linux distributions
   (as new as Ubuntu 24.04 or newer) without installing anything. It

@@ -8,7 +8,7 @@ Downloads: https://github.com/aharonium/hebocr/releases
   because the program is not yet code-signed: choose "More info", then
   "Run anyway".
 
-  macOS (Apple silicon, macOS 14 or later): open
+  macOS (Apple silicon, macOS 15 or later): open
   hebocr-<version>-macos-arm64.dmg and drag hebOCR to Applications. The
   first time, macOS refuses to open it because it is not signed by a
   registered Apple developer: open System Settings > Privacy & Security

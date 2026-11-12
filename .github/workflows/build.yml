@@ -235,9 +235,10 @@ jobs:
 
   macos:
     name: macOS (Apple silicon)
-    # Homebrew's libraries on this runner are built for macOS 14, so the
-    # app runs on macOS 14 Sonoma or later
-    runs-on: macos-14
+    # pinned (macos-latest moves forward over time). Homebrew's libraries
+    # on this runner are built for macOS 15, so the app runs on macOS 15
+    # Sequoia or later. (macos-14 was retired on November 2, 2026.)
+    runs-on: macos-15
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
