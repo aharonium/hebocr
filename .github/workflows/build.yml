@@ -235,6 +235,10 @@ jobs:
 
   macos:
     name: macOS (Apple silicon)
+    # Run only when started by hand (Actions > Build > Run workflow): in
+    # November 2026 GitHub could not assign macOS arm64 machines ("capacity
+    # constraints"), and the job failed before starting on every push.
+    if: github.event_name == 'workflow_dispatch'
     # pinned (macos-latest moves forward over time). Homebrew's libraries
     # on this runner are built for macOS 15, so the app runs on macOS 15
     # Sequoia or later. (macos-14 was retired on November 2, 2026.)

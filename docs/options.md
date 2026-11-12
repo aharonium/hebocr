@@ -49,6 +49,24 @@ first. Most problems start there: letters that are broken or blotchy,
 or lines and words that were found wrongly. Fix those with the settings
 below before anything else.
 
+## Reading part of a page
+
+On the *Original* tab, drag with the mouse to draw a rectangle around the
+text you want; *Run OCR* then reads only that area. This is the way to
+read the Hebrew on a page that also has text in another script, or to
+skip page numbers, notes or pictures. Click once on the image (or press
+Ctrl+D, or choose *OCR ▸ Clear Selection*) to read the whole page again.
+Opening another image also clears the selection.
+
+To move around an enlarged image while selecting, drag with the middle
+mouse button, or hold the space bar and drag. On the *Black & White* and
+*Layout* tabs, which show the result for the area that was read, a plain
+drag moves the image.
+
+The engine itself has no cropping option: the program cuts out the
+selected area and gives the engine just that. The command shown at the
+bottom of the window notes this.
+
 ## Recognition
 
 How letters are identified and how the text is written out.

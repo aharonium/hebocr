@@ -110,6 +110,9 @@ needs expert tuning.
 - **Side-by-side proofreading**: click a line of text to highlight it
   on the page image, and the reverse.
 - **Windows installer** with Start menu entry and file associations.
+- **macOS app.** The build is written (a disk image for Apple silicon,
+  macOS 15 or later), but in November 2026 GitHub could not provide macOS
+  machines to run it; it can be started by hand from the Actions tab.
 - **Signed and notarized macOS app**, so macOS opens it without the
   "unidentified developer" refusal. This needs an Apple Developer account
   (US$99 a year).
@@ -131,4 +134,4 @@ needs expert tuning.
   CMake build; automated builds and releases.
 - **0.12.0**: hebocr-gui for one page at a time; options guide; corrected
   command-line help; multi-column pages read right to left, with titles
-  and full-width bands in place; Linux AppImage; macOS app.
+  and full-width bands in place; area selection; Linux AppImage.

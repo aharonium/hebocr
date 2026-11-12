@@ -15,7 +15,8 @@ Using the graphical program
 Double-click hebocr-gui.exe. Open an image (or drag one onto the
 window), adjust settings on the left if you like, and press Run OCR
 (F5). The recognized text appears on the right, where you can edit it
-and save it as UTF-8 text.
+and save it as UTF-8 text. To read only part of a page, drag a
+rectangle over it on the Original tab first.
 
 The "Black & White" and "Layout" tabs show how the engine saw the
 page: the processed image, and the columns, lines and letters it found.

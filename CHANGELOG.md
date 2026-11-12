@@ -19,13 +19,14 @@ history of the original project (2005–2013) is in the file `ChangeLog`.
     HTML
   - the equivalent `hebocr` command for the current settings, with a Copy
     button
+  - select an area of the page with the mouse, and read only that area
+    (for example the Hebrew text on a page that also has text in another
+    script)
   - opens grayscale and color TIFF files, which the engine itself cannot
 - **Options Guide** (`docs/options.md`, and Help ▸ Options Guide in the
   program, with search and adjustable text size): explains every setting
   and option, how the engine reads a page, and its known limitations.
 - **Roadmap** of planned work (`docs/ROADMAP.md`).
-- **macOS app** for Macs with Apple silicon (macOS 15 Sequoia or later), as
-  a disk image.
 - **Linux AppImage**: a single file that runs on most Linux distributions
   (as new as Ubuntu 24.04 or newer) without installing anything. It
   replaces the Linux download that needed Qt installed.
