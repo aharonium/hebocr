@@ -544,8 +544,21 @@ ho_layout_get_block_text (const ho_layout * l_page, int block_index)
   /* get paragraph objmap */
   o_map_blocks = ho_objmap_new_from_bitmap (l_page->m_page_blocks_mask);
 
-  /* sort paragraph by reading order */
-  ho_objmap_sort_by_reading_index (o_map_blocks, l_page->type, l_page->dir);
+  /*
+   * Sort paragraphs by reading order. Unless one column (1) or line
+   * ordering (253) was asked for, find the columns from the blocks
+   * themselves (252). Before, an unknown column count (0), free layout
+   * (255) or more than 6 columns left the blocks unsorted, in the order
+   * they were found scanning left to right, so the left column of a
+   * Hebrew page could be read before the right one.
+   */
+  {
+    unsigned char order = l_page->type;
+
+    if (order == 0 || (order > 6 && order != 253))
+      order = 252;
+    ho_objmap_sort_by_reading_index (o_map_blocks, order, l_page->dir);
+  }
 
   x = ho_objmap_get_object (o_map_blocks, block_index).x;
   y = ho_objmap_get_object (o_map_blocks, block_index).y;

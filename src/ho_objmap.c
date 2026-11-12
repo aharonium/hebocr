@@ -1048,61 +1048,272 @@ ho_objmap_update_reading_index_multi_columns (ho_objmap * m,
   const unsigned char n_columns, const unsigned char dir_ltr)
 {
   int index;
-  int column;
+  int k, column;
   int reading_index;
   int y;
+  int edge;
+  int size;
   int x_start, x_end;
   int column_start_list_size;
   int *column_start_list = NULL;
+  unsigned char *assigned = NULL;
+  unsigned char *band = NULL;
+  int *col = NULL;
+  int *col_min = NULL;
+  int *col_max = NULL;
+  int *order = NULL;
+  int n;
   ho_bitmap *m_bitmap = NULL;
 
-  /* FIXME: if n_columns > 6 ? */
-  if (n_columns < 2 || n_columns > 6)
+  /*
+   * 2..6 columns, or 252: find the columns from the blocks. Other values
+   * mean "leave the order alone": letter slicing (ho_segment.c) relies on
+   * 255 doing nothing.
+   */
+  if (n_columns < 2 || (n_columns > 6 && n_columns != 252))
     return TRUE;
 
-  reading_index = 0;
+  size = ho_objmap_get_size (m);
+  if (size < 2)
+    return ho_objmap_update_reading_index_column (m, 1, dir_ltr);
 
-  /* get columns start list */
-  m_bitmap = ho_objmap_to_bitmap (m);
-  if (!m_bitmap)
-    return TRUE;
+  /*
+   * Get the columns' start list (rightmost column first). Look for the
+   * gutters using only blocks narrower than about half the text area:
+   * a title or full-width paragraph covers the gutter and would hide the
+   * columns. If there are no narrow blocks, use them all.
+   */
+  {
+    int span_min = m->width, span_max = 0;
 
-  column_start_list_size =
-    ho_dimentions_get_columns_with_x_start (m_bitmap, &column_start_list);
-
-  /* free bitmap */
-  ho_bitmap_free (m_bitmap);
+    for (index = 0; index < size; index++)
+    {
+      if (ho_objmap_get_object (m, index).x < span_min)
+        span_min = ho_objmap_get_object (m, index).x;
+      if (ho_objmap_get_object (m, index).x +
+        ho_objmap_get_object (m, index).width > span_max)
+        span_max = ho_objmap_get_object (m, index).x +
+          ho_objmap_get_object (m, index).width;
+    }
+    m_bitmap = ho_objmap_to_bitmap_by_size (m, 0, m->height, 0,
+      (span_max - span_min) * 55 / 100);
+    if (m_bitmap)
+    {
+      column_start_list_size =
+        ho_dimentions_get_columns_with_x_start (m_bitmap, &column_start_list);
+      ho_bitmap_free (m_bitmap);
+    }
+    if (!column_start_list)
+    {
+      m_bitmap = ho_objmap_to_bitmap (m);
+      if (!m_bitmap)
+        return TRUE;
+      column_start_list_size =
+        ho_dimentions_get_columns_with_x_start (m_bitmap, &column_start_list);
+      ho_bitmap_free (m_bitmap);
+    }
+  }
 
   /* column detection failed: fall back to single-column reading order */
   if (!column_start_list)
     return ho_objmap_update_reading_index_column (m, 1, dir_ltr);
 
-  /* look at all the columns */
-  x_start = m->width;
-  for (column = 0; column < column_start_list_size; column++)
+  assigned = calloc (size, sizeof (unsigned char));
+  if (!assigned)
   {
-    /* get column start and end x's */
-    x_end = x_start;
-    x_start = column_start_list[column];
+    free (column_start_list);
+    return TRUE;
+  }
 
-    /* look on all the blocks in this clomun */
-    for (y = 0; y < m->height; y++)
+  /*
+   * Assign each block to the column that contains the edge where its
+   * lines start: the right edge for right-to-left text, the left edge for
+   * left-to-right text.
+   */
+  col = malloc (size * sizeof (int));
+  band = calloc (size, sizeof (unsigned char));
+  col_min = malloc (column_start_list_size * sizeof (int));
+  col_max = malloc (column_start_list_size * sizeof (int));
+  if (!col || !band || !col_min || !col_max)
+  {
+    free (col);
+    free (band);
+    free (col_min);
+    free (col_max);
+    free (assigned);
+    free (column_start_list);
+    return TRUE;
+  }
+  /* blocks starting on the same row are taken in the text's direction */
+  order = malloc (size * sizeof (int));
+  if (!order)
+  {
+    free (col);
+    free (band);
+    free (col_min);
+    free (col_max);
+    free (assigned);
+    free (column_start_list);
+    return TRUE;
+  }
+  for (index = 0; index < size; index++)
+    order[index] = index;
+  for (index = 1; index < size; index++)
+  {
+    int key = order[index], n = index - 1;
+    int key_x = ho_objmap_get_object (m, key).x +
+      (dir_ltr ? 0 : ho_objmap_get_object (m, key).width);
+    while (n >= 0)
     {
-      /* check all objects */
-      for (index = 0; index < ho_objmap_get_size (m); index++)
-      {
-        if ((ho_objmap_get_object (m, index).y) == y
-          && (ho_objmap_get_object (m, index).x) >= x_start
-          && (ho_objmap_get_object (m, index).x) < x_end)
-        {
-          ho_objmap_get_object (m, index).reading_index = reading_index;
-          reading_index++;
-        }
-      }
+      int nx = ho_objmap_get_object (m, order[n]).x +
+        (dir_ltr ? 0 : ho_objmap_get_object (m, order[n]).width);
+      if (dir_ltr ? nx <= key_x : nx >= key_x)
+        break;
+      order[n + 1] = order[n];
+      n--;
+    }
+    order[n + 1] = key;
+  }
+
+  for (index = 0; index < size; index++)
+  {
+    col[index] = -1;
+    edge = dir_ltr ? ho_objmap_get_object (m, index).x
+      : ho_objmap_get_object (m, index).x +
+      ho_objmap_get_object (m, index).width - 1;
+    for (column = 0; column < column_start_list_size; column++)
+    {
+      x_start = column_start_list[column];
+      x_end = (column == 0) ? m->width : column_start_list[column - 1];
+      if (edge >= x_start && edge < x_end)
+        col[index] = column;
     }
   }
 
-  /* free clomun start list */
+  /*
+   * Measure each column's width from its "core" blocks: those that sit
+   * side by side with a block of another column. If a column has none,
+   * use all of its blocks.
+   */
+  for (column = 0; column < column_start_list_size; column++)
+  {
+    int pass;
+
+    col_min[column] = m->width;
+    col_max[column] = -1;
+    for (pass = 0; pass < 2 && col_max[column] < 0; pass++)
+      for (index = 0; index < size; index++)
+      {
+        int other, core = 0;
+        ho_obj *a = &ho_objmap_get_object (m, index);
+
+        if (col[index] != column)
+          continue;
+        for (other = 0; pass == 0 && other < size && !core; other++)
+        {
+          ho_obj *b = &ho_objmap_get_object (m, other);
+          if (col[other] >= 0 && col[other] != column
+            && a->y < b->y + b->height && b->y < a->y + a->height)
+            core = 1;
+        }
+        if (pass == 1 || core)
+        {
+          if (a->x < col_min[column])
+            col_min[column] = a->x;
+          if (a->x + a->width > col_max[column])
+            col_max[column] = a->x + a->width;
+        }
+      }
+  }
+
+  /*
+   * A block that belongs to no column, or does not fit within its
+   * column's width (a title, a full-width paragraph), is a band across
+   * the page.
+   */
+  for (index = 0; index < size; index++)
+  {
+    ho_obj *a = &ho_objmap_get_object (m, index);
+    int tol;
+
+    if (col[index] < 0 || col_max[col[index]] < 0)
+    {
+      band[index] = 1;
+      continue;
+    }
+    tol = (col_max[col[index]] - col_min[col[index]]) / 20 + 2;
+    if (a->x < col_min[col[index]] - tol
+      || a->x + a->width > col_max[col[index]] + tol)
+      band[index] = 1;
+  }
+
+  /*
+   * Read the columns in the text's direction (right to left for Hebrew),
+   * each top to bottom, down to the next band; then the band; and so on.
+   */
+  reading_index = 0;
+  for (y = 0; y <= m->height; y++)
+  {
+    int band_here = -1;
+
+    if (y < m->height)
+      for (n = 0; n < size; n++)
+        if (band[index = order[n]] && !assigned[index]
+          && ho_objmap_get_object (m, index).y == y)
+        {
+          band_here = index;
+          break;
+        }
+    if (band_here < 0 && y < m->height)
+      continue;
+
+    /* the columns above this band (or the rest of the page) */
+    for (k = 0; k < column_start_list_size; k++)
+    {
+      int yy;
+
+      column = dir_ltr ? column_start_list_size - 1 - k : k;
+      for (yy = 0; yy < y; yy++)
+        for (n = 0; n < size; n++)
+          if (!assigned[index = order[n]] && !band[index] && col[index] == column
+            && ho_objmap_get_object (m, index).y == yy)
+          {
+            ho_objmap_get_object (m, index).reading_index = reading_index;
+            reading_index++;
+            assigned[index] = 1;
+          }
+    }
+
+    /* then every band starting on this row */
+    if (y < m->height)
+      for (n = 0; n < size; n++)
+        if (band[index = order[n]] && !assigned[index]
+          && ho_objmap_get_object (m, index).y == y)
+        {
+          ho_objmap_get_object (m, index).reading_index = reading_index;
+          reading_index++;
+          assigned[index] = 1;
+        }
+  }
+
+  free (col);
+  free (band);
+  free (col_min);
+  free (col_max);
+
+  /* blocks outside every detected column follow, top to bottom, so every
+   * block gets a unique reading index and no text is lost */
+  for (y = 0; y < m->height; y++)
+    for (n = 0; n < size; n++)
+      if (!assigned[index = order[n]] && ho_objmap_get_object (m, index).y == y)
+      {
+        ho_objmap_get_object (m, index).reading_index = reading_index;
+        reading_index++;
+        assigned[index] = 1;
+      }
+
+  free (order);
+  free (assigned);
   free (column_start_list);
 
   return FALSE;
