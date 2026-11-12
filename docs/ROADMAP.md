@@ -47,6 +47,21 @@ needs expert tuning.
   letters and niqud separately. This makes every change measurable.
 - **Faster processing of noisy images** such as phone photos, which can
   take minutes per page.
+- **Parallel recognition.** The engine recognizes letters one after
+  another in a single loop. Splitting the page into regions and
+  recognizing them on several processor cores at once (a
+  producer–consumer design, as Diego Iastrubni suggests) would give the
+  biggest speed-up.
+- **Digits and number order.** Digits are rarely recognized today, and
+  the right-to-left reading reverses any that are (123 as 321). Improve
+  digit recognition and reverse runs of digits in the output.
+- **Resolution independence.** The rules were tuned for letters of a
+  certain pixel size; very high-resolution scans show detail the rules
+  don't expect. Normalize letter size before recognition (downscaling as
+  well as the existing upscaling).
+- **Debug mode changes results.** Running with `-d` gives slightly
+  different text from a normal run, which suggests some state is
+  computed differently in debug mode; find and remove the difference.
 
 ## Other engines and services
 
@@ -86,6 +101,9 @@ needs expert tuning.
 
 ## Program
 
+- **Python interface.** The original project had Python bindings
+  (hocr-python) for scripting; bring them back, or add new ones.
+
 - **Hebrew user interface** (translation of menus and settings).
 - **Saved setting presets**, e.g. "vocalized 19th-century type" or
   "modern print".
@@ -99,4 +117,5 @@ needs expert tuning.
 - **0.11.1**: first Windows build; memory-safety fixes; PNG/JPEG input;
   CMake build; automated builds and releases.
 - **0.12.0**: hebocr-gui for one page at a time; options guide; corrected
-  command-line help.
+  command-line help; multi-column pages read right to left, with titles
+  and full-width bands in place.

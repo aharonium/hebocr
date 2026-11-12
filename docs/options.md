@@ -5,10 +5,24 @@ and every option of the command-line engine (`hebocr`). Each entry gives
 the name used in the program, the matching command-line flag, the
 allowed values and the default.
 
-No detailed documentation survives from the original project: the
-`hebocr --help` text has one line per option. This guide was written in
-2026 from the engine's source code and from the settings menus of Kobi
-Zamir's original hocr-gtk program. Corrections are welcome.
+This guide was written in 2026 from the engine's source code and from
+the settings menus of Kobi Zamir's original hocr-gtk program; the
+`hebocr --help` text has only one line per option. Kobi Zamir's original
+user documentation for the 0.10 series, in Hebrew, is on Wikibooks:
+[Hocr - הפיכת תמונה עם אותיות עבריות לקובץ טקסט](https://he.wikibooks.org/wiki/Hocr_-_%D7%94%D7%A4%D7%99%D7%9B%D7%AA_%D7%AA%D7%9E%D7%95%D7%A0%D7%94_%D7%A2%D7%9D_%D7%90%D7%95%D7%AA%D7%99%D7%95%D7%AA_%D7%A2%D7%91%D7%A8%D7%99%D7%95%D7%AA_%D7%9C%D7%A7%D7%95%D7%91%D7%A5_%D7%98%D7%A7%D7%A1%D7%98).
+Corrections are welcome.
+
+## About hebOCR
+
+hebOCR (originally *hocr*) was written by Kobi (Yaacov) Zamir from 2005
+and released under the GNU GPL. It was designed for old, yellowed pages,
+complex page layouts, and vocalized text: its 0.6 series was the first
+Hebrew OCR program able to read text with niqud and keep the niqud in
+its output. Diego Iastrubni later contributed the qhOCR interface and
+reorganized the code. The original project offered three ways to use the
+engine: the hocr-gtk program, the `hocr` command line, and a Python
+interface (hocr-python). Development stopped around 2013; it was revived
+in 2026.
 
 ## How hebOCR reads a page
 
@@ -160,7 +174,11 @@ parts".
 How the page is divided into columns, lines, words and letters.
 
 **Columns** (`-c NUM`; default *Auto*). The number of text columns.
-*Auto* (`-c 0`) detects them. Choose a number (`-c 1`, `-c 2`, …) when
+Columns are read from right to left (left to right with *Left-to-right
+text*), each from top to bottom. A title or other block wider than its
+column is treated as a band across the page: the columns above it are
+read first, then the band, then the columns below it. *Auto* (`-c 0`)
+detects the columns. Choose a number (`-c 1`, `-c 2`, …) when
 detection gets it wrong: for example, a single-column page detected as
 two because of a wide gap, or a bilingual edition with parallel columns.
 *Free layout* (`-c 255`) does not look for columns at all. It finds
@@ -255,6 +273,22 @@ with `-O`. For example, `-O out/page -b` writes `out/page-image-bw.pgm`.
 - `-D`, `--debug-extra`: print detailed debugging information.
 - `-y NUM`, `--font-filter`: debug one of the letter-measurement filters.
 - `-Y`, `--font-filter-list`: list the filters available to `-y`.
+
+## Known limitations
+
+- **One font model.** Only the David rules exist; see *Font model*.
+  Typefaces that differ much from David recognize poorly.
+- **Digits** are in the engine's character set but are rarely recognized
+  correctly. Because each line is read from right to left, a number that
+  is recognized also comes out reversed (1901 as 1091).
+- **Ṭe'amim** (cantillation marks) are not recognized.
+- **Hebrew only.** Text in other scripts comes out as Hebrew-looking
+  gibberish.
+- **Letter size.** The rules expect letters roughly 30–60 pixels tall.
+  Very high resolution scans are not necessarily better: scale them down
+  if letters are much larger than that.
+- **Speed.** The engine works on one letter at a time, using one
+  processor core. Noisy images with many specks can take minutes.
 
 ## Tips
 
