@@ -190,7 +190,9 @@ if(HEBOCR_BUILD_GUI AND HEBOCR_BUILD_CLI)
       target_compile_definitions(hebocr-gui-tests PRIVATE
         HEBOCR_VERSION="${PROJECT_VERSION}"
         HEBOCR_BUILD_LABEL="${HEBOCR_BUILD_LABEL}"
-        TEST_IMAGE="${CMAKE_CURRENT_SOURCE_DIR}/tests/images/genesis_nikud.png")
+        TEST_IMAGE="${CMAKE_CURRENT_SOURCE_DIR}/tests/images/genesis_nikud.png"
+        TWO_COLUMN_IMAGE="${CMAKE_CURRENT_SOURCE_DIR}/tests/images/two_columns_title.png")
+      add_dependencies(hebocr-gui-tests hebocr)
       target_link_libraries(hebocr-gui-tests PRIVATE Qt6::Widgets Qt6::Test)
       qt_add_resources(hebocr-gui-tests "docs_tests"
         PREFIX "/"

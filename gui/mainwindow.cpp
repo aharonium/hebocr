@@ -48,6 +48,9 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QGraphicsRectItem>
+#include <QKeyEvent>
+#include <QMouseEvent>
 #include <QSlider>
 #include <QTextBrowser>
 #include <QDialog>
@@ -95,7 +98,8 @@ ImageView::ImageView (QWidget *parent)
 {
   m_scene->addItem (m_pixmap);
   setScene (m_scene);
-  setDragMode (QGraphicsView::ScrollHandDrag);
+  /* panning and selecting are handled in the mouse events below */
+  setDragMode (QGraphicsView::NoDrag);
   setTransformationAnchor (QGraphicsView::AnchorUnderMouse);
   setRenderHint (QPainter::SmoothPixmapTransform);
   setBackgroundBrush (palette ().window ());
@@ -140,6 +144,7 @@ ImageView::dropEvent (QDropEvent *event)
 void
 ImageView::setImage (const QImage &image)
 {
+  removeSelectionItem ();
   for (QGraphicsItem *item : m_scene->items ())
     if (item != m_pixmap)
       {
@@ -150,12 +155,14 @@ ImageView::setImage (const QImage &image)
   m_pixmap->setVisible (true);
   m_scene->setSceneRect (m_pixmap->boundingRect ());
   m_hasImage = !image.isNull ();
+  updateCursor ();
   zoomToFit ();
 }
 
 void
 ImageView::clearImage (const QString &message)
 {
+  removeSelectionItem ();
   m_pixmap->setPixmap (QPixmap ());
   m_pixmap->setVisible (false);
   for (QGraphicsItem *item : m_scene->items ())
@@ -165,6 +172,7 @@ ImageView::clearImage (const QString &message)
         delete item;
       }
   m_hasImage = false;
+  updateCursor ();
   resetTransform ();
   if (!message.isEmpty ())
     {
@@ -199,6 +207,188 @@ ImageView::zoomActualSize ()
     return;
   m_fit = false;
   resetTransform ();
+}
+
+void
+ImageView::setSelectable (bool on)
+{
+  m_selectable = on;
+  if (!on)
+    clearSelection ();
+  updateCursor ();
+}
+
+void
+ImageView::updateCursor ()
+{
+  if (m_panning)
+    viewport ()->setCursor (Qt::ClosedHandCursor);
+  else if (m_spaceDown || (m_hasImage && !m_selectable))
+    viewport ()->setCursor (Qt::OpenHandCursor);
+  else if (m_hasImage && m_selectable)
+    viewport ()->setCursor (Qt::CrossCursor);
+  else
+    viewport ()->unsetCursor ();
+}
+
+QPointF
+ImageView::clampToImage (const QPointF &p) const
+{
+  const QRectF r = m_pixmap->boundingRect ();
+  return QPointF (qBound (r.left (), p.x (), r.right ()),
+                  qBound (r.top (), p.y (), r.bottom ()));
+}
+
+void
+ImageView::showSelectionRect (const QRectF &rect)
+{
+  if (!m_selectionItem)
+    {
+      QColor c = palette ().color (QPalette::Highlight);
+      QPen pen (c, 2, Qt::DashLine);
+      pen.setCosmetic (true); /* 2 screen pixels at any zoom */
+      c.setAlpha (40);
+      m_selectionItem = m_scene->addRect (rect, pen, QBrush (c));
+      m_selectionItem->setZValue (1);
+    }
+  else
+    m_selectionItem->setRect (rect);
+}
+
+void
+ImageView::removeSelectionItem ()
+{
+  /* the scene deletes it with the other items; just forget it, and
+   * report the selection as gone */
+  if (m_selectionItem)
+    {
+      m_scene->removeItem (m_selectionItem);
+      delete m_selectionItem;
+      m_selectionItem = nullptr;
+    }
+  m_selecting = false;
+  if (!m_selection.isNull ())
+    {
+      m_selection = QRect ();
+      emit selectionChanged (m_selection);
+    }
+}
+
+void
+ImageView::setSelection (const QRect &rect)
+{
+  const QRect bounded = rect & m_pixmap->boundingRect ().toRect ();
+  if (!m_hasImage || bounded.width () < 4 || bounded.height () < 4)
+    {
+      clearSelection ();
+      return;
+    }
+  showSelectionRect (bounded);
+  m_selection = bounded;
+  emit selectionChanged (m_selection);
+}
+
+void
+ImageView::clearSelection ()
+{
+  removeSelectionItem ();
+}
+
+void
+ImageView::mousePressEvent (QMouseEvent *event)
+{
+  const bool pan = event->button () == Qt::MiddleButton
+    || (event->button () == Qt::LeftButton && (m_spaceDown || !m_selectable));
+  if (pan && m_hasImage)
+    {
+      m_panning = true;
+      m_panStart = event->pos ();
+      updateCursor ();
+      event->accept ();
+      return;
+    }
+  if (event->button () == Qt::LeftButton && m_selectable && m_hasImage)
+    {
+      m_selecting = true;
+      m_anchor = clampToImage (mapToScene (event->pos ()));
+      showSelectionRect (QRectF (m_anchor, m_anchor));
+      event->accept ();
+      return;
+    }
+  QGraphicsView::mousePressEvent (event);
+}
+
+void
+ImageView::mouseMoveEvent (QMouseEvent *event)
+{
+  if (m_panning)
+    {
+      const QPoint delta = event->pos () - m_panStart;
+      m_panStart = event->pos ();
+      horizontalScrollBar ()->setValue (horizontalScrollBar ()->value () - delta.x ());
+      verticalScrollBar ()->setValue (verticalScrollBar ()->value () - delta.y ());
+      event->accept ();
+      return;
+    }
+  if (m_selecting)
+    {
+      showSelectionRect (QRectF (m_anchor, clampToImage (mapToScene (event->pos ())))
+                           .normalized ());
+      event->accept ();
+      return;
+    }
+  QGraphicsView::mouseMoveEvent (event);
+}
+
+void
+ImageView::mouseReleaseEvent (QMouseEvent *event)
+{
+  if (m_panning && (event->button () == Qt::MiddleButton || event->button () == Qt::LeftButton))
+    {
+      m_panning = false;
+      updateCursor ();
+      event->accept ();
+      return;
+    }
+  if (m_selecting && event->button () == Qt::LeftButton)
+    {
+      m_selecting = false;
+      const QRectF r = m_selectionItem ? m_selectionItem->rect () : QRectF ();
+      /* a click without a real drag clears the selection */
+      if (r.width () < 4 || r.height () < 4)
+        clearSelection ();
+      else
+        setSelection (r.toAlignedRect ());
+      event->accept ();
+      return;
+    }
+  QGraphicsView::mouseReleaseEvent (event);
+}
+
+void
+ImageView::keyPressEvent (QKeyEvent *event)
+{
+  if (event->key () == Qt::Key_Space && !event->isAutoRepeat ())
+    {
+      m_spaceDown = true;
+      updateCursor ();
+      event->accept ();
+      return;
+    }
+  QGraphicsView::keyPressEvent (event);
+}
+
+void
+ImageView::keyReleaseEvent (QKeyEvent *event)
+{
+  if (event->key () == Qt::Key_Space && !event->isAutoRepeat ())
+    {
+      m_spaceDown = false;
+      updateCursor ();
+      event->accept ();
+      return;
+    }
+  QGraphicsView::keyReleaseEvent (event);
 }
 
 void
@@ -354,6 +544,14 @@ MainWindow::buildActions ()
 
   ocrMenu->addAction (m_runAct);
   ocrMenu->addAction (m_stopAct);
+  ocrMenu->addSeparator ();
+  m_clearSelectionAct = ocrMenu->addAction (tr ("&Clear Selection (Read Whole Page)"));
+  m_clearSelectionAct->setShortcut (QKeySequence (Qt::CTRL | Qt::Key_D));
+  m_clearSelectionAct->setEnabled (false);
+  connect (m_clearSelectionAct, &QAction::triggered, this, [this] {
+    m_originalView->clearSelection ();
+  });
+  ocrMenu->addSeparator ();
   QAction *resetAct = ocrMenu->addAction (tr ("Reset Settings to Defaults"));
   connect (resetAct, &QAction::triggered, this, &MainWindow::resetSettings);
 
@@ -418,6 +616,12 @@ MainWindow::buildCentral ()
   m_imageTabs->addTab (m_originalView, tr ("Original"));
   m_imageTabs->addTab (m_bwView, tr ("Black && White"));
   m_imageTabs->addTab (m_layoutView, tr ("Layout"));
+
+  m_originalView->setSelectable (true);
+  m_originalView->setObjectName ("originalView");
+  m_originalView->setToolTip (tr ("Drag to select the area to read; click to clear the selection.\n"
+                                  "Middle-drag or Space+drag to pan; Ctrl+wheel to zoom."));
+  connect (m_originalView, &ImageView::selectionChanged, this, &MainWindow::selectionChanged);
 
   for (ImageView *view : { m_originalView, m_bwView, m_layoutView })
     connect (view, &ImageView::fileDropped, this, [this] (const QString &path) {
@@ -967,6 +1171,20 @@ MainWindow::engineArguments (bool forDisplay) const
 }
 
 void
+MainWindow::selectionChanged (const QRect &rect)
+{
+  m_selection = rect;
+  m_clearSelectionAct->setEnabled (!rect.isNull ());
+  if (!rect.isNull ())
+    m_status->setText (tr ("Selected area: %1 × %2 pixels at (%3, %4). Run OCR reads only this "
+                           "area; Ctrl+D or a click clears it.")
+                         .arg (rect.width ()).arg (rect.height ()).arg (rect.x ()).arg (rect.y ()));
+  else if (!m_imagePath.isEmpty () && !isRunning ())
+    m_status->setText (tr ("No area selected: Run OCR reads the whole page."));
+  updateCommandLine ();
+}
+
+void
 MainWindow::updateCommandLine ()
 {
   if (m_loadingSettings || !m_commandLine)
@@ -974,7 +1192,13 @@ MainWindow::updateCommandLine ()
   QStringList parts { QStringLiteral ("hebocr") };
   for (const QString &arg : engineArguments (true))
     parts << quoteArg (arg);
-  m_commandLine->setText (parts.join (QLatin1Char (' ')));
+  QString command = parts.join (QLatin1Char (' '));
+  /* the engine has no cropping option: the program crops the image first */
+  if (!m_selection.isNull ())
+    command += tr ("    # selected area only (%1x%2 at %3,%4): the program crops the image first")
+                 .arg (m_selection.width ()).arg (m_selection.height ())
+                 .arg (m_selection.x ()).arg (m_selection.y ());
+  m_commandLine->setText (command);
 }
 
 void
@@ -1015,7 +1239,19 @@ MainWindow::runOcr ()
     "png", "jpg", "jpeg", "bmp", "gif", "tga", "pgm", "ppm", "pnm", "pbm"
   };
   m_engineInput = m_imagePath;
-  if (!engineFormats.contains (QFileInfo (m_imagePath).suffix ().toLower ()))
+  if (!m_selection.isNull ())
+    {
+      /* read only the selected area */
+      m_engineInput = m_workDir->filePath ("input-area.png");
+      if (!m_image.copy (m_selection).convertToFormat (QImage::Format_Grayscale8)
+             .save (m_engineInput, "PNG"))
+        {
+          QMessageBox::critical (this, tr ("hebOCR"),
+            tr ("Could not prepare the selected area for the engine."));
+          return;
+        }
+    }
+  else if (!engineFormats.contains (QFileInfo (m_imagePath).suffix ().toLower ()))
     {
       m_engineInput = m_workDir->filePath ("input.png");
       if (!m_image.convertToFormat (QImage::Format_Grayscale8).save (m_engineInput, "PNG"))
@@ -1108,7 +1344,9 @@ MainWindow::processFinished (int exitCode, QProcess::ExitStatus status)
   m_text->document ()->setModified (false);
   QTimer::singleShot (0, this, &MainWindow::scrollTextToLineStarts);
   const int lines = text.count (QLatin1Char ('\n'));
-  m_status->setText (tr ("Done in %1 s — %2 lines recognized from %3.")
+  m_status->setText ((m_selection.isNull ()
+                        ? tr ("Done in %1 s — %2 lines recognized from %3.")
+                        : tr ("Done in %1 s — %2 lines recognized from the selected area of %3."))
                        .arg (secs, 0, 'f', 1)
                        .arg (lines)
                        .arg (QFileInfo (m_imagePath).fileName ()));

@@ -9,6 +9,7 @@
 #include "guidewindow.h"
 
 #include <QComboBox>
+#include <QMouseEvent>
 #include <QFontComboBox>
 #include <QFontDatabase>
 #include <QDockWidget>
@@ -62,7 +63,107 @@ private:
     return path;
   }
 
+  /* press, move and release the left mouse button on VIEW between two
+   * points given in image (scene) coordinates */
+  static void
+  dragOnImage (ImageView *view, QPointF from, QPointF to,
+               Qt::MouseButton button = Qt::LeftButton)
+  {
+    QWidget *vp = view->viewport ();
+    const QPointF a = view->mapFromScene (from);
+    const QPointF b = view->mapFromScene (to);
+    const QPointF mid = (a + b) / 2;
+    QMouseEvent press (QEvent::MouseButtonPress, a, vp->mapToGlobal (a),
+                       button, button, Qt::NoModifier);
+    QCoreApplication::sendEvent (vp, &press);
+    QMouseEvent move1 (QEvent::MouseMove, mid, vp->mapToGlobal (mid),
+                       Qt::NoButton, button, Qt::NoModifier);
+    QCoreApplication::sendEvent (vp, &move1);
+    QMouseEvent move2 (QEvent::MouseMove, b, vp->mapToGlobal (b),
+                       Qt::NoButton, button, Qt::NoModifier);
+    QCoreApplication::sendEvent (vp, &move2);
+    QMouseEvent release (QEvent::MouseButtonRelease, b, vp->mapToGlobal (b),
+                         button, Qt::NoButton, Qt::NoModifier);
+    QCoreApplication::sendEvent (vp, &release);
+  }
+
 private slots:
+  void
+  selectAreaWithMouse ()
+  {
+    MainWindow w;
+    w.resize (1200, 800);
+    w.show ();
+    QVERIFY (w.openImage (QStringLiteral (TEST_IMAGE)));
+    QCoreApplication::processEvents ();
+    auto *view = w.findChild<ImageView *> ("originalView");
+    auto *cmd = w.findChild<QLineEdit *> ("commandLine");
+    QVERIFY (view && cmd);
+    QVERIFY (view->selection ().isNull ());
+
+    dragOnImage (view, QPointF (100, 50), QPointF (700, 250));
+    const QRect sel = view->selection ();
+    QVERIFY2 (!sel.isNull (), "dragging did not select an area");
+    QVERIFY (qAbs (sel.left () - 100) <= 3 && qAbs (sel.right () - 700) <= 3);
+    QVERIFY (cmd->text ().contains ("selected area only"));
+
+    /* a click without dragging clears the selection */
+    dragOnImage (view, QPointF (300, 100), QPointF (300, 100));
+    QVERIFY (view->selection ().isNull ());
+    QVERIFY (!cmd->text ().contains ("selected area only"));
+
+    /* Ctrl+D clears it too */
+    dragOnImage (view, QPointF (100, 50), QPointF (700, 250));
+    QVERIFY (!view->selection ().isNull ());
+    QTest::keyClick (&w, Qt::Key_D, Qt::ControlModifier);
+    QVERIFY (view->selection ().isNull ());
+
+    /* opening another image clears it */
+    dragOnImage (view, QPointF (100, 50), QPointF (700, 250));
+    QVERIFY (w.openImage (QStringLiteral (TEST_IMAGE)));
+    QVERIFY (view->selection ().isNull ());
+  }
+
+  void
+  resultTabsPanInsteadOfSelecting ()
+  {
+    MainWindow w;
+    w.show ();
+    QVERIFY (w.openImage (QStringLiteral (TEST_IMAGE)));
+    const auto views = w.findChildren<ImageView *> ();
+    for (ImageView *v : views)
+      if (v->objectName () != "originalView")
+        {
+          v->setImage (QImage (QStringLiteral (TEST_IMAGE)));
+          dragOnImage (v, QPointF (100, 50), QPointF (700, 250));
+          QVERIFY (v->selection ().isNull ());
+        }
+  }
+
+  void
+  ocrReadsOnlySelectedArea ()
+  {
+    MainWindow w;
+    w.resize (1200, 800);
+    w.show ();
+    QVERIFY (w.openImage (QStringLiteral (TWO_COLUMN_IMAGE)));
+    auto *view = w.findChild<ImageView *> ("originalView");
+    auto *text = w.findChild<QPlainTextEdit *> ("ocrText");
+    QVERIFY (view && text);
+    const QImage page (QStringLiteral (TWO_COLUMN_IMAGE));
+    /* the right column only, below the title */
+    view->setSelection (QRect (page.width () / 2 + 50, 150,
+                               page.width () / 2 - 50, page.height () - 150));
+    QVERIFY (!view->selection ().isNull ());
+    w.runOcr ();
+    QTRY_VERIFY_WITH_TIMEOUT (!w.isRunning (), 60000);
+    const QString result = text->toPlainText ();
+    QVERIFY2 (result.contains (QStringLiteral ("ימין")), qPrintable (result));
+    QVERIFY2 (!result.contains (QStringLiteral ("שמאל")), qPrintable (result));
+    QVERIFY2 (!result.contains (QStringLiteral ("כותרת")), qPrintable (result));
+  }
+
+
   void
   dropOnEachImageTab ()
   {

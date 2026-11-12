@@ -44,6 +44,9 @@ main (int argc, char *argv[])
   QCommandLineOption screenshotGuide ("screenshot-guide",
     "Also save a screenshot of the Options Guide window to FILE.", "FILE");
   parser.addOption (screenshotGuide);
+  QCommandLineOption screenshotArea ("screenshot-area",
+    "Select the area X,Y,W,H (image pixels) before running OCR.", "X,Y,W,H");
+  parser.addOption (screenshotArea);
   QCommandLineOption screenshotTab ("screenshot-tab",
     "Image tab to show in the screenshot: 0 original, 1 black and white, 2 layout.", "N", "0");
   parser.addOption (screenshotTab);
@@ -61,6 +64,11 @@ main (int argc, char *argv[])
     {
       if (!args.isEmpty ())
         {
+          const QStringList area = parser.value (screenshotArea).split (',');
+          if (area.size () == 4)
+            if (auto *view = window.findChild<ImageView *> ("originalView"))
+              view->setSelection (QRect (area[0].toInt (), area[1].toInt (),
+                                         area[2].toInt (), area[3].toInt ()));
           window.runOcr ();
           QEventLoop loop;
           QTimer poll;

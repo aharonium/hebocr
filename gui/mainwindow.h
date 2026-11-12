@@ -23,6 +23,7 @@ class QComboBox;
 class QFontComboBox;
 class QDoubleSpinBox;
 class QGraphicsPixmapItem;
+class QGraphicsRectItem;
 class QGraphicsScene;
 class QLabel;
 class QLineEdit;
@@ -45,9 +46,19 @@ public:
   void zoomToFit ();
   void zoomActualSize ();
 
+  /* Area selection: when selectable, dragging with the left button draws
+   * a rectangle over the image (in image pixels). Middle-drag or
+   * Space+drag pans. */
+  void setSelectable (bool on);
+  QRect selection () const { return m_selection; }
+  void setSelection (const QRect &rect);
+  void clearSelection ();
+
 signals:
   /* an image file was dropped onto the view */
   void fileDropped (const QString &path);
+  /* the selected area changed; empty when cleared */
+  void selectionChanged (const QRect &rect);
 
 protected:
   void wheelEvent (QWheelEvent *event) override;
@@ -55,12 +66,30 @@ protected:
   void dragEnterEvent (QDragEnterEvent *event) override;
   void dragMoveEvent (QDragMoveEvent *event) override;
   void dropEvent (QDropEvent *event) override;
+  void mousePressEvent (QMouseEvent *event) override;
+  void mouseMoveEvent (QMouseEvent *event) override;
+  void mouseReleaseEvent (QMouseEvent *event) override;
+  void keyPressEvent (QKeyEvent *event) override;
+  void keyReleaseEvent (QKeyEvent *event) override;
 
 private:
+  QPointF clampToImage (const QPointF &scenePos) const;
+  void showSelectionRect (const QRectF &rect);
+  void removeSelectionItem ();
+  void updateCursor ();
+
   QGraphicsScene *m_scene;
   QGraphicsPixmapItem *m_pixmap;
+  QGraphicsRectItem *m_selectionItem = nullptr;
+  QRect m_selection;
+  QPointF m_anchor;
+  QPoint m_panStart;
   bool m_hasImage = false;
   bool m_fit = true;
+  bool m_selectable = false;
+  bool m_selecting = false;
+  bool m_panning = false;
+  bool m_spaceDown = false;
 };
 
 class MainWindow : public QMainWindow
@@ -101,6 +130,7 @@ private slots:
   void setTextFamily (const QFont &font);
   void updateThresholdControls ();
   void scrollTextToLineStarts ();
+  void selectionChanged (const QRect &rect);
 
 private:
   void buildActions ();
@@ -135,6 +165,7 @@ private:
   QAction *m_stopAct;
   QAction *m_saveAct;
   QAction *m_copyAct;
+  QAction *m_clearSelectionAct;
 
   /* recognition */
   QComboBox *m_fontModel;
@@ -171,6 +202,7 @@ private:
   QString m_imagePath;
   QImage m_image;
   QString m_engineInput;
+  QRect m_selection;
   QProcess *m_process = nullptr;
   QTemporaryDir *m_workDir = nullptr;
   QElapsedTimer m_elapsed;
