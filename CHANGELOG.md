@@ -3,7 +3,7 @@
 Changes in each hebOCR release since development resumed in 2026. The
 history of the original project (2005–2013) is in the file `ChangeLog`.
 
-## 0.12.0 (unreleased)
+## 0.12.0 (2026-11-12)
 
 ### New
 

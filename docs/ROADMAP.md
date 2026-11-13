@@ -27,6 +27,13 @@ needs expert tuning.
   with and without niqud, in each font. This gives unlimited letter
   images whose correct reading is known exactly, at many sizes and with
   simulated scan noise.
+- **Training data from the Open Siddur's AI-assisted transcriptions.**
+  Efraim Feinstein's opensiddur-processor
+  (<https://github.com/opensiddur/opensiddur-processor>) turns scanned
+  pages into proofread JLPTEI texts. Each scanned page paired with its
+  proofread text is a training and test example in the typefaces of the
+  Open Siddur's actual sources. The goal: offline tools (hebOCR,
+  Tesseract, trained models) that approach those AI-assisted results.
 - **Real training data.** Build a public collection of page images in
   different Hebrew types, each paired with a proofread transcription.
   Pages already transcribed by hand (such as Open Siddur transcriptions
@@ -101,6 +108,14 @@ needs expert tuning.
 
 ## Program
 
+- **An Image menu and toolbar buttons**, as in Viet.OCR: Deskew (a button
+  to the right of Actual Size) that straightens the page visibly before
+  recognition, and rotate, crop, brightness and contrast, despeckle and
+  similar preparation. Today deskewing happens inside the engine (the
+  Auto rotate setting) and is not shown on the page.
+- **Comparing engines.** In testing, Viet.OCR (Tesseract) recognizes
+  plain Hebrew better than hebOCR, whose strength is niqud. Show both
+  results side by side, and combine them.
 - **Python interface.** The original project had Python bindings
   (hocr-python) for scripting; bring them back, or add new ones.
 
