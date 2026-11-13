@@ -36,7 +36,7 @@ On Windows, build in an MSYS2 UCRT64 shell with the packages listed in
 Original README follows.
 
 hebOCR is a free Hebrew OCR (optical character recognition) library based on the
-hebocr c/c++ library originally written by Dr. by Kobi Zamir. The aim of this
+hebocr c/c++ library originally written by Dr. Kobi Zamir. The aim of this
 project is to develop a fully open-source and free OCR (or hebrew definition)
 
 
